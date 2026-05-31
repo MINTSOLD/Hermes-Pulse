@@ -1041,9 +1041,16 @@ function autoResize() {
 // ============================================
 
 async function loadSessions() {
-  // Gateway 暂无 sessions 端点，显示空列表
-  state.sessions = [];
+  // 从 Gateway 拉取历史会话列表
+  try {
+    const r = await fetch(`${API_BASE}/api/sessions`, { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const data = await r.json();
+      state.sessions = Array.isArray(data) ? data : (data.sessions || []);
+    }
+  } catch {}
   renderSessions();
+  updateHistoryDropdown();
 }
 
 function renderSessions() {
@@ -1057,6 +1064,53 @@ function filterSessions() {
 async function switchSession(id) {
   state.currentSession = id;
   renderSessions();
+}
+
+async function loadSessionById(id) {
+  // 点击历史会话时，创建新 tab 并加载该会话
+  const newId = 'tab-' + Date.now();
+  const newTab = { id: newId, name: '历史会话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: id };
+  tabs.push(newTab);
+  currentTabIndex = tabs.length - 1;
+  state.currentSession = id;
+  state.messages = [];
+  state.chatHistory = [];
+
+  // 尝试加载会话历史
+  try {
+    const r = await fetch(`${API_BASE}/api/sessions/${id}/messages`, { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data)) {
+        state.chatHistory = data;
+        newTab.chatHistory = data;
+        // 渲染历史消息
+        const messagesEl = document.getElementById('messages');
+        if (messagesEl) {
+          messagesEl.innerHTML = '';
+          data.forEach(msg => {
+            if (msg.role === 'user' || msg.role === 'assistant') {
+              const cls = msg.role === 'user' ? 'message-user' : 'message-assistant';
+              const avatar = msg.role === 'assistant' ? '<div class="avatar"><img src="hermes-logo.png" alt="Hermes"></div>' : '';
+              messagesEl.insertAdjacentHTML('beforeend',
+                `<div class="message ${cls}">${avatar}<div class="message-bubble"><div class="message-content">${msg.content || ''}</div></div></div>`
+              );
+            }
+          });
+        }
+      }
+    }
+  } catch {}
+
+  // 更新标签名
+  const session = (state.sessions || []).find(s => (s.id || s.session_id) === id);
+  if (session) {
+    newTab.name = session.title || session.name || '历史会话';
+  }
+
+  renderTabBar();
+  const chatArea = document.getElementById('chat-area');
+  if (chatArea) requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
 }
 
 async function deleteSession(id) {
@@ -1205,16 +1259,43 @@ function closeHistoryDropdown() {
 function updateHistoryDropdown() {
   const dropdown = document.getElementById('history-dropdown');
   if (!dropdown) return;
-  if (tabs.length <= 1) {
+
+  // 合并内存 tabs + 服务端 sessions（去重）
+  const allSessions = [];
+  const seenIds = new Set();
+
+  // 先加内存中的 tabs
+  tabs.forEach((tab, i) => {
+    const id = tab.sessionId || tab.id;
+    if (!seenIds.has(id)) {
+      seenIds.add(id);
+      allSessions.push({ name: tab.name, id, source: 'tab', index: i });
+    }
+  });
+
+  // 再加服务端 sessions
+  (state.sessions || []).forEach(s => {
+    const id = s.id || s.session_id;
+    if (id && !seenIds.has(id)) {
+      seenIds.add(id);
+      allSessions.push({ name: s.title || s.name || id, id, source: 'server', index: -1 });
+    }
+  });
+
+  if (allSessions.length === 0) {
     dropdown.innerHTML = '<div class="history-empty">暂无历史会话</div>';
     return;
   }
-  dropdown.innerHTML = tabs.map((tab, i) => {
-    const active = i === currentTabIndex ? ' active' : '';
-    return `<div class="history-item${active}" onclick="switchTab(${i}); closeHistoryDropdown();">
+
+  dropdown.innerHTML = allSessions.map((s, i) => {
+    const isActive = s.source === 'tab' && s.index === currentTabIndex;
+    const active = isActive ? ' active' : '';
+    const clickAction = s.source === 'tab'
+      ? `switchTab(${s.index}); closeHistoryDropdown();`
+      : `loadSessionById('${s.id}'); closeHistoryDropdown();`;
+    return `<div class="history-item${active}" onclick="${clickAction}">
       <span class="history-item-icon">💬</span>
-      <span class="history-item-name">${tab.name}</span>
-      ${tab.chatHistory.length > 0 ? `<span class="history-item-count">${tab.chatHistory.length} 条</span>` : ''}
+      <span class="history-item-name">${s.name}</span>
     </div>`;
   }).join('');
 }
