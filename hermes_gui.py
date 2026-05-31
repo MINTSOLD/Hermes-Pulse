@@ -367,10 +367,7 @@ def ensure_gateway():
         }
         if _IS_WIN:
             kwargs["creationflags"] = 0x08000000
-        # 直接用 sc stop/start 避免 hermes.exe 弹黑窗口
-        subprocess.run(["sc", "stop", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
-        time.sleep(3)
-        subprocess.run(["sc", "start", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
+        subprocess.Popen([hermes_cmd, "gateway", "start"], **kwargs)
     except Exception:
         pass
     for i in range(20):

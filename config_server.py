@@ -647,14 +647,12 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
                 if not os.path.exists(hermes_exe):
                     self._json_response({"ok": False, "error": "hermes.exe not found"})
                 else:
-                    # 直接用 sc stop/start 避免 hermes.exe 弹黑窗口
-                    import time as _t
-                    try:
-                        subprocess.run(["sc", "stop", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
-                        _t.sleep(3)
-                        subprocess.run(["sc", "start", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
-                    except Exception:
-                        pass
+                    # 用 hermes.exe gateway start（不带 restart 避免交互提示）
+                    subprocess.Popen(
+                        [hermes_exe, "gateway", "start"],
+                        creationflags=0x08000000,  # CREATE_NO_WINDOW
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
                     self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
@@ -852,9 +850,11 @@ def _start_gateway():
     _gateway_restart_count += 1
     print(f"[ConfigServer] 第 {_gateway_restart_count} 次自动启动 Gateway...")
     try:
-        subprocess.run(["sc", "stop", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
-        _time.sleep(3)
-        subprocess.run(["sc", "start", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
+        subprocess.Popen(
+            [str(HERMES_VEXE), "gateway", "start"],
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
     except Exception as e:
         print(f"[ConfigServer] 启动 Gateway 失败: {e}")
         return False
