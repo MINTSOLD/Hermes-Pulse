@@ -251,6 +251,9 @@ async function manualReconnect() {
   }
 
   state._reconnecting = false;
+
+  // 强制刷新页面加载最新文件（CSS/JS），会话在服务端保留可恢复
+  setTimeout(() => { location.reload(true); }, 800);
 }
 
 // ============================================
