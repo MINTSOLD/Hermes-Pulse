@@ -600,14 +600,17 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # Windows: 通过 pywebview 拿 HWND 设置深色标题栏
-        # 图标由 pywebview.start(icon=...) 原生处理，不靠 FindWindowW
+        # Windows: 等待 pywebview 窗口创建完成后设置深色标题栏
         if _IS_WIN:
-            try:
-                hwnd = window.native.Handle.ToInt32()
-                _apply_dark_titlebar(hwnd)
-            except Exception:
-                pass
+            for _ in range(50):  # 最多等 5 秒
+                try:
+                    if window.native and window.native.Handle:
+                        hwnd = window.native.Handle.ToInt32()
+                        _apply_dark_titlebar(hwnd)
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.1)
         if window:
             window.show()
         threading.Thread(target=start_tray, daemon=True).start()
