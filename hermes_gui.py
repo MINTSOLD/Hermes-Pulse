@@ -357,19 +357,9 @@ def ensure_config_server():
 def ensure_gateway():
     if _port_alive(8642):
         return
-    hermes_cmd = _find_hermes_command()
-    if not hermes_cmd:
-        return
-    try:
-        kwargs = {
-            "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
-        }
-        if _IS_WIN:
-            kwargs["creationflags"] = 0x08000000
-        subprocess.Popen([hermes_cmd, "gateway", "start"], **kwargs)
-    except Exception:
-        pass
+    # Gateway 由 Scheduled Task 管理，不主动启动，避免弹黑窗口
+    # 只记录日志，让用户知道 gateway 需要手动启动
+    print("[HermesGUI] Gateway 未运行，请通过 hermes gateway start 启动")
     for i in range(20):
         time.sleep(1)
         if _port_alive(8642):

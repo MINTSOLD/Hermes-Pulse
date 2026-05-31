@@ -641,21 +641,9 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             self._json_response({"models": models})
 
         elif self.path == "/restart_gateway":
-            import subprocess
-            try:
-                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
-                if not os.path.exists(hermes_exe):
-                    self._json_response({"ok": False, "error": "hermes.exe not found"})
-                else:
-                    # 用 hermes.exe gateway start（不带 restart 避免交互提示）
-                    subprocess.Popen(
-                        [hermes_exe, "gateway", "start"],
-                        creationflags=0x08000000,  # CREATE_NO_WINDOW
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                    )
-                    self._json_response({"ok": True})
-            except Exception as e:
-                self._json_response({"ok": False, "error": str(e)})
+            # Gateway 由 Scheduled Task 管理，不需要手动重启
+            # 仅返回 ok，让前端知道 gateway 状态
+            self._json_response({"ok": True, "note": "gateway managed by scheduled task"})
 
         elif self.path == "/start_dashboard":
             import subprocess
@@ -850,11 +838,8 @@ def _start_gateway():
     _gateway_restart_count += 1
     print(f"[ConfigServer] 第 {_gateway_restart_count} 次自动启动 Gateway...")
     try:
-        subprocess.Popen(
-            [str(HERMES_VEXE), "gateway", "start"],
-            creationflags=0x08000000,  # CREATE_NO_WINDOW
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        # Gateway 由 Scheduled Task 管理，不手动启动，避免弹黑窗口
+        pass
     except Exception as e:
         print(f"[ConfigServer] 启动 Gateway 失败: {e}")
         return False
