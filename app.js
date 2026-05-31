@@ -15,22 +15,42 @@ const state = {
 };
 
 // Tab management
-let tabs = loadSavedTabs();
+let tabs = [{ id: 'tab-0', name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
 let currentTabIndex = 0;
+let _tabsLoaded = false;
 
 function currentTab() { return tabs[currentTabIndex]; }
 
+// 启动时从磁盘恢复会话
+loadSavedTabs().then(saved => {
+  tabs = saved;
+  _tabsLoaded = true;
+  renderTabBar();
+  updateHistoryDropdown();
+});
+
 // ============================================
-// 本地会话持久化 (localStorage)
+// 本地会话持久化 (磁盘文件 via config_server)
 // ============================================
 const STORAGE_KEY = 'hermes_pulse_tabs';
 
-function loadSavedTabs() {
+async function loadSavedTabs() {
+  try {
+    const r = await fetch(`${CONFIG_SERVER}/local-sessions`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const data = await r.json();
+      if (data.sessions && data.sessions.length > 0) return data.sessions;
+    }
+  } catch {}
+  // fallback: 尝试从 localStorage 迁移
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length > 0) return saved;
+      if (Array.isArray(saved) && saved.length > 0) {
+        localStorage.removeItem(STORAGE_KEY);
+        return saved;
+      }
     }
   } catch {}
   return [{ id: 'tab-0', name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
@@ -38,13 +58,17 @@ function loadSavedTabs() {
 
 function saveTabs() {
   try {
-    // 只保存必要的数据（不保存 messagesHtml，太大）
     const lite = tabs.map(t => ({
       id: t.id, name: t.name, chatHistory: t.chatHistory || [],
       totalPromptTokens: t.totalPromptTokens || 0, completedTokens: t.completedTokens || 0,
       sessionId: t.sessionId, messagesHtml: ''
     }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(lite));
+    // 异步保存到磁盘（不阻塞 UI）
+    fetch(`${CONFIG_SERVER}/local-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessions: lite }),
+    }).catch(() => {});
   } catch {}
 }
 

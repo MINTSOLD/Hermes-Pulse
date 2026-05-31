@@ -292,6 +292,17 @@ class Handler(BaseHTTPRequestHandler):
             self._cors()
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "dashboard": dashboard_ok, "gateway": gateway_ok}).encode())
+        elif self.path == "/local-sessions":
+            # 本地会话持久化 — 从磁盘读取
+            sessions_file = HERMES_DIR / "desktop" / "gui_sessions.json"
+            try:
+                if sessions_file.exists():
+                    data = json.loads(sessions_file.read_text(encoding="utf-8"))
+                else:
+                    data = {"sessions": []}
+            except Exception:
+                data = {"sessions": []}
+            self._json_response(data)
         elif self.path.startswith("/gateway/"):
             # 代理 Gateway 请求（转发 Authorization 头）
             real_path = self.path[len("/gateway"):]
@@ -453,7 +464,17 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length)) if length else {}
 
-        if self.path.startswith("/gateway/"):
+        if self.path == "/local-sessions":
+            # 本地会话持久化 — 保存到磁盘
+            sessions_file = HERMES_DIR / "desktop" / "gui_sessions.json"
+            sessions_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                sessions_file.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
+            return
+        elif self.path.startswith("/gateway/"):
             # 代理 Gateway POST 请求（含 Authorization 头转发）
             real_path = self.path[len("/gateway"):]
             auth = self.headers.get("Authorization", "")
