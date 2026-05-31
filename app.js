@@ -1213,13 +1213,8 @@ function closeTab(index) {
 function renderTabBar() {
   const bar = document.getElementById('toolbar-tabs');
   if (!bar) return;
-  // 保留 btn-history 和 btn-new-tab 按钮
-  const btnHistory = document.getElementById('btn-history');
-  const dropdown = document.getElementById('history-dropdown');
   const btn = document.getElementById('btn-new-tab');
   bar.innerHTML = '';
-  if (btnHistory) bar.appendChild(btnHistory);
-  if (dropdown) bar.appendChild(dropdown);
   tabs.forEach((tab, i) => {
     const div = document.createElement('div');
     div.className = 'tab' + (i === currentTabIndex ? ' active' : '');
@@ -1235,7 +1230,6 @@ function renderTabBar() {
     }
     bar.appendChild(div);
   });
-  bar.appendChild(btn);
   updateHistoryDropdown();
 }
 

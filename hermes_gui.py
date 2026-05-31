@@ -495,6 +495,12 @@ def _apply_dark_titlebar(hwnd):
             ctypes.byref(ctypes.c_int(0x000000)), 4)
     except Exception:
         pass
+    # 设置边框颜色为纯黑（消除 Windows 11 的灰色边框）
+    try:
+        dwmapi.DwmSetWindowAttribute(hwnd, 34,  # DWMWA_BORDER_COLOR
+            ctypes.byref(ctypes.c_int(0x000000)), 4)
+    except Exception:
+        pass
     # 启用深色模式
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
