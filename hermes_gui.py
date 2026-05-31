@@ -38,13 +38,17 @@ def _port_alive(port, timeout=1):
 
 
 # ══════════════════════════════════════════
-#  启动画面 — 透明底，140px Logo 居中 + 状态文字
+#  透明底 Logo 启动画面
 # ══════════════════════════════════════════
 import tkinter as tk
 
 def run_splash():
-    """透明底小窗：Logo 居中 + 状态文字。返回屏幕中心坐标。"""
+    """
+    透明底：140px Logo + 半透明黑底加载文字。
+    返回 (screen_cx, logo_screen_y)。
+    """
     BG = "#010101"
+    LOGO_SIZE = 280
 
     root = tk.Tk()
     root.overrideredirect(True)
@@ -54,8 +58,8 @@ def run_splash():
 
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
 
-    # 窗口大小：Logo(140) + 间距(30) + 状态文字(20) = 190，取 220
-    W, H = 240, 220
+    # 窗口大小：Logo(280) + 间距(20) + 文字区(50) = 350
+    W, H = 340, 360
     x = (sw - W) // 2
     y = (sh - H) // 2
     root.geometry(f"{W}x{H}+{x}+{y}")
@@ -63,72 +67,65 @@ def run_splash():
     canvas = tk.Canvas(root, width=W, height=H, bg=BG, highlightthickness=0)
     canvas.pack()
 
-    # Logo 居中
+    # Logo 居中偏上
+    logo_y = H // 2 - 25
     logo_tk = None
-    logo_y = H // 2 - 15  # 稍偏上，给状态文字留空间
     if os.path.exists(LOGO_PNG):
         try:
             pil = PILImage.open(LOGO_PNG).convert("RGBA")
-            pil = pil.resize((140, 140), PILImage.LANCZOS)
+            pil = pil.resize((LOGO_SIZE, LOGO_SIZE), PILImage.LANCZOS)
             from PIL import ImageTk
             logo_tk = ImageTk.PhotoImage(pil)
             canvas.create_image(W // 2, logo_y, image=logo_tk, anchor="center")
         except:
             pass
 
-    # 状态文字
+    # 半透明黑底 + 白色加载文字（间距加大）
+    text_bg_y = logo_y + LOGO_SIZE // 2 + 22
+    canvas.create_rectangle(
+        W // 2 - 70, text_bg_y - 14,
+        W // 2 + 70, text_bg_y + 14,
+        fill="#333333", outline="", stipple="gray50"
+    )
     status_id = canvas.create_text(
-        W // 2, logo_y + 70 + 25,  # Logo 底部 + 间距
-        text="正在启动...",
-        font=("Segoe UI", 9), fill="#666666", anchor="center"
+        W // 2, text_bg_y,
+        text="正 在 启 动 ...",
+        font=("Microsoft YaHei", 10), fill="#cccccc", anchor="center"
     )
 
     root.update()
 
-    # 等服务
-    def wait_for_services():
-        for _ in range(30):
-            if _port_alive(18765):
-                break
-            try:
-                canvas.itemconfig(status_id, text="启动配置服务...")
-                root.update()
-            except:
-                return
-            time.sleep(1)
-        try:
-            canvas.itemconfig(status_id, text="配置服务就绪")
-            root.update()
-        except:
-            return
-        for _ in range(20):
-            if _port_alive(8642):
-                break
-            try:
-                canvas.itemconfig(status_id, text="启动 Gateway...")
-                root.update()
-            except:
-                return
-            time.sleep(1)
-        try:
-            canvas.itemconfig(status_id, text="准备就绪")
-            root.update()
-        except:
-            return
-        for _ in range(4):
-            try:
-                root.update()
-            except:
-                return
-            time.sleep(0.25)
+    # 固定 3 秒，用 time.time 精确控制
+    start_time = time.time()
+    status_texts = [
+        (0.0, "正 在 启 动 ..."),
+        (1.0, "配 置 服 务 就 绪"),
+        (2.0, "准 备 就 绪"),
+    ]
+    text_idx = 0
 
-    wait_for_services()
-    cx, cy = sw // 2, sh // 2
+    while time.time() - start_time < 3.0:
+        elapsed = time.time() - start_time
+        # 更新状态文字
+        while text_idx < len(status_texts) and elapsed >= status_texts[text_idx][0]:
+            try:
+                canvas.itemconfig(status_id, text=status_texts[text_idx][1])
+            except:
+                break
+            text_idx += 1
+        try:
+            root.update()
+        except:
+            break
+        time.sleep(0.05)
+
+    logo_screen_y = y + logo_y
     try:
         root.destroy()
     except:
         pass
-    return cx, cy
+
+    return sw // 2, logo_screen_y
 
 
 # ══════════════════════════════════════════
@@ -188,9 +185,6 @@ def start_tray():
     tray_icon.run()
 
 
-# ══════════════════════════════════════════
-#  后台服务
-# ══════════════════════════════════════════
 def ensure_config_server():
     if _port_alive(18765):
         return
@@ -223,9 +217,6 @@ def ensure_gateway():
             return
 
 
-# ══════════════════════════════════════════
-#  窗口图标
-# ══════════════════════════════════════════
 def _set_icon_on_hwnd(hwnd):
     user32 = ctypes.windll.user32
     dwmapi = ctypes.windll.dwmapi
@@ -285,20 +276,30 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # 启动画面：Logo 居中 + 状态文字
-    splash_cx, splash_cy = run_splash()
+    # 透明底 Logo + 加载文字
+    splash_cx, logo_screen_y = run_splash()
 
-    # 主窗口：居中，黑色背景
+    # 主窗口居中
+    sw, sh = 1920, 1080
+    try:
+        import tkinter as _tk
+        _r = _tk.Tk()
+        sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
+        _r.destroy()
+    except:
+        pass
+
     win_w, win_h = 1200, 800
-    win_x = splash_cx - win_w // 2
-    win_y = splash_cy - win_h // 2
+    win_x = (sw - win_w) // 2
+    win_y = (sh - win_h) // 2
 
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
         width=win_w, height=win_h,
         min_size=(800, 600),
-        resizable=True, text_select=True, hidden=True,
+        resizable=True, text_select=True,
+        hidden=True,
         background_color="#000000")
     window = w
     w.events.closing += on_window_close
