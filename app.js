@@ -205,45 +205,33 @@ async function manualReconnect() {
   const el = document.getElementById('connection-status');
   const dot = el?.querySelector('.status-dot');
   const text = el?.querySelector('.status-text');
+  const startTime = Date.now();
 
   // 防止重复点击
   if (state._reconnecting) return;
   state._reconnecting = true;
 
-  // 第一步：完全断开 — 清除所有状态，像关闭软件一样
+  // 第一步：显示重启中状态 — 保留所有聊天内容不动
   state.connected = false;
   state.failReason = '';
-  state.isGenerating = false;
-  state.messages = [];
-  state.chatHistory = [];
-  state.sessions = [];
-  state.currentSession = null;
   if (state.abortController) state.abortController.abort();
-  updateConnectionStatus();
   btn.classList.add('spinning');
   btn?.classList.remove('connected');
-  if (el) el.className = 'status-indicator connecting';
-  if (dot) { dot.style.background = '#666666'; dot.style.animation = 'none'; }
-
-  // 清空聊天界面
-  const messagesEl = document.getElementById('messages');
-  if (messagesEl) messagesEl.innerHTML = '';
-
-  // 第二步：显示重启进度
+  if (el) el.className = 'status-indicator restarting';
+  if (dot) { dot.style.background = '#d4af37'; dot.style.animation = 'none'; }
   if (text) text.textContent = '重启中...';
-  await new Promise(r => setTimeout(r, 500));
 
-  // 第三步：重新加载所有配置
-  if (text) text.textContent = '① 重新加载配置...';
+  // 第二步：重新加载所有配置（不碰聊天）
+  if (text) text.textContent = '重启中 · ① 重新加载配置...';
   await loadRealConfig();
 
-  if (text) text.textContent = '② 加载模型列表...';
+  if (text) text.textContent = '重启中 · ② 加载模型列表...';
   loadModels();
 
-  if (text) text.textContent = '③ 重新加载会话...';
+  if (text) text.textContent = '重启中 · ③ 重新加载会话...';
   loadSessions();
 
-  if (text) text.textContent = '④ 检测连接状态...';
+  if (text) text.textContent = '重启中 · ④ 检测连接状态...';
   await checkConnection();
 
   // 计算耗时
@@ -251,7 +239,6 @@ async function manualReconnect() {
 
   // 最终结果
   btn.classList.remove('spinning');
-  btn?.classList.remove('connected');
 
   if (state.connected) {
     if (text) text.textContent = `已连接 · ${elapsed}s`;
@@ -259,6 +246,7 @@ async function manualReconnect() {
     showToolbarToast(`✓ 重启完成 · ${elapsed}s`);
   } else {
     if (text) text.textContent = `未连接 · ${state.failReason || '服务不可用'}`;
+    updateConnectionStatus();
     showToolbarToast(`✗ 重启完成，但 ${state.failReason || '服务不可用'}`);
   }
 

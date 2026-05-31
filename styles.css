@@ -789,6 +789,18 @@ body {
 }
 .toolbar-right .status-indicator.connecting .status-text { color: var(--text-secondary); }
 
+/* 重启中状态 — 金色脉动 */
+.status-indicator.restarting .status-dot {
+  background: #d4af37;
+  box-shadow: 0 0 6px 1px rgba(212,175,55,0.5), 0 0 12px 3px rgba(212,175,55,0.2);
+  animation: dot-restarting 1s ease-in-out infinite;
+}
+.status-indicator.restarting .status-text { color: #d4af37; }
+@keyframes dot-restarting {
+  0%, 100% { opacity: 0.5; box-shadow: 0 0 4px 1px rgba(212,175,55,0.3); }
+  50% { opacity: 1; box-shadow: 0 0 10px 3px rgba(212,175,55,0.6); }
+}
+
 /* 工具栏连接状态淡化 */
 .toolbar-right .status-indicator.offline.connected .status-text { opacity: 0.3; }
 .toolbar-right .status-indicator.offline.connected .btn-reconnect { opacity: 0.3; }
