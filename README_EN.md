@@ -49,17 +49,24 @@ We believe AI clients shouldn't be bloated. Hermes Pulse's entire frontend is un
 
 ### Ultra-Lightweight: Redefining AI Clients
 
-| | Hermes Pulse | ChatGPT Desktop | Open WebUI | LobeChat | ChatBox |
+| | Hermes Pulse | Hermes Agent CLI | OpenClaw | LobeChat | NextChat |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Tech Stack** | pywebview Native | Electron | Docker + Node | Next.js | Electron |
-| **Install Size** | **< 1 MB** | 200 MB+ | 500 MB+ | 300 MB+ | 150 MB+ |
-| **Memory Usage** | **~30 MB** | ~200 MB+ | ~500 MB+ | ~300 MB+ | ~150 MB+ |
-| **Startup Time** | **< 2 sec** | 5-10 sec | Needs Docker | Needs Node | 5-8 sec |
-| **Framework Deps** | **None** | Electron | Node.js | React | Electron |
-| **System Integration** | Native Window | Pseudo-native | Browser | Browser | Pseudo-native |
+| **Type** | Native Desktop Client | Terminal CLI | Web UI | Web UI | Web UI |
+| **Tech Stack** | pywebview Native | Python CLI | Docker + Node | Next.js | Electron |
+| **Install Size** | **< 1 MB** | ~50 MB | 500 MB+ | 300 MB+ | 150 MB+ |
+| **Memory Usage** | **~30 MB** | ~20 MB | ~500 MB+ | ~300 MB+ | ~150 MB+ |
+| **Startup Time** | **< 2 sec** | < 1 sec | Needs Docker | Needs Node | 5-8 sec |
+| **Interface** | Native Window GUI | Terminal Text | Browser | Browser | Pseudo-native |
+| **Breathing Effects** | ✅ Original | ❌ | ❌ | ❌ | ❌ |
+| **Smart Scroll** | ✅ Follow + Rollback | ❌ | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic |
+| **Tool Visualization** | ✅ Real-time + Collapse | ⚠️ Plain Text | ⚠️ Basic | ⚠️ Basic | ❌ |
+| **Multi-Tab** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Message Queue** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Auto-DevOps** | ✅ Watchdog | ❌ Manual | ❌ Manual | ❌ | ❌ |
 
-> **Hermes Pulse achieves with one Python script + three frontend files what Electron needs 200MB for.**
-> This isn't "bare-bones" — it's "precise" — doing only what's needed, allocating every resource where it matters.
+> **Hermes Pulse is the only native desktop client in the Hermes Agent ecosystem.**
+> CLI is for power users, Web UI is for self-hosters — Pulse is for everyone who wants an elegant experience.
+> With < 1MB install size and ~30MB memory, we deliver the complete experience that others need 200MB+ for.
 
 ### Breathing Light Effects: More Than Just Pretty
 
@@ -118,7 +125,7 @@ Hermes Pulse's original breathing light system isn't decoration — it's **intel
 
 ### Option 1: Download Installer (Recommended)
 
-Download `HermesPulse-1.0.0.zip` from [Releases](https://github.com/MINTSOLD/hermes-gui/releases), extract, and double-click `install.bat`.
+Download `HermesPulse-1.0.0.zip` from [Releases](https://github.com/MINTSOLD/hermes-pulse/releases), extract, and double-click `install.bat`.
 
 ### Option 2: Manual Install
 
@@ -129,7 +136,7 @@ Download `HermesPulse-1.0.0.zip` from [Releases](https://github.com/MINTSOLD/her
 # - Hermes Agent installed (pip install hermes-agent)
 
 # Clone the repo
-git clone https://github.com/MINTSOLD/hermes-gui.git
+git clone https://github.com/MINTSOLD/hermes-pulse.git
 cd hermes-gui
 
 # Install dependencies
@@ -214,8 +221,8 @@ hermes-pulse/
 
 We welcome any form of feedback!
 
-- 🐛 **Report Bugs**: [Submit an Issue](https://github.com/MINTSOLD/hermes-gui/issues)
-- 💡 **Feature Requests**: [Start a Discussion](https://github.com/MINTSOLD/hermes-gui/discussions)
+- 🐛 **Report Bugs**: [Submit an Issue](https://github.com/MINTSOLD/hermes-pulse/issues)
+- 💡 **Feature Requests**: [Start a Discussion](https://github.com/MINTSOLD/hermes-pulse/discussions)
 - 🔧 **Submit Code**: Fork → Branch → PR
 - ⭐ **Star Us**: The simplest way to show support
 
