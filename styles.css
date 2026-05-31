@@ -116,6 +116,45 @@ body {
 .btn-new-tab { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; }
 .btn-new-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
+/* 历史会话下拉按钮 */
+.btn-history {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; padding: 4px 6px; border-radius: 4px;
+  transition: all 0.15s; flex-shrink: 0; display: flex;
+  align-items: center; position: relative;
+}
+.btn-history:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.btn-history svg { transition: transform 0.2s; }
+.btn-history.open svg { transform: rotate(180deg); }
+
+/* 历史会话下拉面板 */
+.history-dropdown {
+  position: absolute; top: 100%; left: 0; z-index: 100;
+  min-width: 240px; max-width: 320px; max-height: 360px;
+  overflow-y: auto; background: #1a1a1a; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 6px; margin-top: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: dropdownFadeIn 0.15s ease;
+}
+.history-dropdown.hidden { display: none; }
+@keyframes dropdownFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.history-empty { padding: 12px 16px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.history-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-radius: 6px; cursor: pointer; transition: background 0.15s;
+  font-size: 12px; color: var(--text-secondary);
+}
+.history-item:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.history-item.active { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.history-item-icon { font-size: 12px; flex-shrink: 0; }
+.history-item-name {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-item-count {
+  color: var(--text-muted); font-size: 11px; flex-shrink: 0;
+  background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 8px;
+}
+
 /* ============================================
    对话区
    ============================================ */

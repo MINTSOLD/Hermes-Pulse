@@ -1168,9 +1168,13 @@ function closeTab(index) {
 function renderTabBar() {
   const bar = document.getElementById('toolbar-tabs');
   if (!bar) return;
-  // 保留 btn-new-tab 按钮
+  // 保留 btn-history 和 btn-new-tab 按钮
+  const btnHistory = document.getElementById('btn-history');
+  const dropdown = document.getElementById('history-dropdown');
   const btn = document.getElementById('btn-new-tab');
   bar.innerHTML = '';
+  if (btnHistory) bar.appendChild(btnHistory);
+  if (dropdown) bar.appendChild(dropdown);
   tabs.forEach((tab, i) => {
     const div = document.createElement('div');
     div.className = 'tab' + (i === currentTabIndex ? ' active' : '');
@@ -1187,6 +1191,49 @@ function renderTabBar() {
     bar.appendChild(div);
   });
   bar.appendChild(btn);
+  updateHistoryDropdown();
+}
+
+// ============================================
+// 历史会话下拉菜单
+// ============================================
+
+function toggleHistoryDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('history-dropdown');
+  if (!dropdown) return;
+  if (dropdown.classList.contains('hidden')) {
+    updateHistoryDropdown();
+    dropdown.classList.remove('hidden');
+    // 点击外部关闭
+    setTimeout(() => {
+      document.addEventListener('click', closeHistoryDropdown, { once: true });
+    }, 10);
+  } else {
+    dropdown.classList.add('hidden');
+  }
+}
+
+function closeHistoryDropdown() {
+  const dropdown = document.getElementById('history-dropdown');
+  if (dropdown) dropdown.classList.add('hidden');
+}
+
+function updateHistoryDropdown() {
+  const dropdown = document.getElementById('history-dropdown');
+  if (!dropdown) return;
+  if (tabs.length <= 1) {
+    dropdown.innerHTML = '<div class="history-empty">暂无历史会话</div>';
+    return;
+  }
+  dropdown.innerHTML = tabs.map((tab, i) => {
+    const active = i === currentTabIndex ? ' active' : '';
+    return `<div class="history-item${active}" onclick="switchTab(${i}); closeHistoryDropdown();">
+      <span class="history-item-icon">💬</span>
+      <span class="history-item-name">${tab.name}</span>
+      ${tab.chatHistory.length > 0 ? `<span class="history-item-count">${tab.chatHistory.length} 条</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ============================================
