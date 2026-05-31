@@ -217,13 +217,25 @@ def run_splash():
     text_bg_y = logo_y + LOGO_SIZE // 2 + 22
 
     def _draw_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
-        """画圆角矩形（tkinter 没有原生支持，用 polygon 模拟）"""
-        points = [
-            x1+r, y1, x2-r, y1, x2, y1, x2, y1+r,
-            x2, y2-r, x2, y2, x2-r, y2, x1+r, y2,
-            x1, y2, x1, y2-r, x1, y1+r, x1, y1,
-        ]
-        return canvas.create_polygon(points, smooth=True, **kwargs)
+        """画胶囊形（两端半圆）"""
+        import math
+        points = []
+        # 右半圆
+        cy = (y1 + y2) / 2
+        rx = (x2 - x1) / 2
+        ry = (y2 - y1) / 2
+        cx = (x1 + x2) / 2
+        # 右半圆 (0 to 180)
+        for deg in range(-90, 91, 5):
+            rad = math.radians(deg)
+            points.append(cx + rx + ry * math.cos(rad))
+            points.append(cy + ry * math.sin(rad))
+        # 左半圆 (180 to 360)
+        for deg in range(90, 271, 5):
+            rad = math.radians(deg)
+            points.append(cx - rx + ry * math.cos(rad))
+            points.append(cy + ry * math.sin(rad))
+        return canvas.create_polygon(points, smooth=False, **kwargs)
 
     _splash_font = ("Helvetica", 10)
     if _IS_WIN:
@@ -252,7 +264,7 @@ def run_splash():
             ry1 = text_bg_y - th // 2 - pad_y
             rx2 = W // 2 + tw // 2 + pad_x
             ry2 = text_bg_y + th // 2 + pad_y
-            # 圆角半径 = 高度的一半，变成两端半圆（胶囊形状）
+            # 胶囊形：圆角半径 = 高度的一半
             corner_r = (ry2 - ry1) // 2
             # 删除旧背景
             canvas.delete("splash_bg")
@@ -264,25 +276,57 @@ def run_splash():
 
     root.update()
 
-    # Fixed 3-second splash with time-based status updates
-    start_time = time.time()
-    status_texts = [
-        (0.0, "正 在 启 动 ..."),
-        (1.0, "配 置 服 务 就 绪"),
-        (2.0, "准 备 就 绪"),
-    ]
-    text_idx = 0
+    # 真实检测服务状态，最多等 8 秒
+    import socket as _sock
+    def _port_ok(port, timeout=1):
+        s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+        s.settimeout(timeout)
+        try:
+            s.connect(("127.0.0.1", port))
+            s.close()
+            return True
+        except:
+            return False
 
-    while time.time() - start_time < 3.0:
+    start_time = time.time()
+    step = 0
+    max_wait = 8.0
+
+    while time.time() - start_time < max_wait:
         elapsed = time.time() - start_time
-        while text_idx < len(status_texts) and elapsed >= status_texts[text_idx][0]:
-            _update_splash_text(status_texts[text_idx][1])
-            text_idx += 1
+
+        if step == 0:
+            _update_splash_text("正 在 启 动 ...")
+            step = 1
+        elif step == 1 and elapsed >= 0.5:
+            if _port_ok(18765):
+                _update_splash_text("配 置 服 务 就 绪 ✓")
+                step = 2
+            else:
+                _update_splash_text("等 待 配 置 服 务 ...")
+        elif step == 2 and elapsed >= 1.0:
+            if _port_ok(8642):
+                _update_splash_text("AI 网 关 就 绪 ✓")
+                step = 3
+            else:
+                _update_splash_text("等 待 AI 网 关 ...")
+        elif step == 3 and elapsed >= 1.5:
+            _update_splash_text("准 备 就 绪")
+            step = 4
+
         try:
             root.update()
         except Exception:
             break
         time.sleep(0.05)
+
+    # 最后确保显示"准备就绪"
+    if step < 4:
+        _update_splash_text("准 备 就 绪")
+        try:
+            root.update()
+        except Exception:
+            pass
 
     logo_screen_y = y + logo_y
     try:
