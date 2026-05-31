@@ -247,14 +247,16 @@ def run_splash():
         if bbox:
             tw = bbox[2] - bbox[0]
             th = bbox[3] - bbox[1]
-            pad_x, pad_y = 20, 10
+            pad_x, pad_y = 24, 10
             rx1 = W // 2 - tw // 2 - pad_x
             ry1 = text_bg_y - th // 2 - pad_y
             rx2 = W // 2 + tw // 2 + pad_x
             ry2 = text_bg_y + th // 2 + pad_y
-            # 删除旧背景（第一个 canvas 对象）
+            # 圆角半径 = 高度的一半，变成两端半圆（胶囊形状）
+            corner_r = (ry2 - ry1) // 2
+            # 删除旧背景
             canvas.delete("splash_bg")
-            _draw_rounded_rect(canvas, rx1, ry1, rx2, ry2, 12,
+            _draw_rounded_rect(canvas, rx1, ry1, rx2, ry2, corner_r,
                                fill="#333333", outline="", stipple="gray50",
                                tags="splash_bg")
             # 把背景移到文字下面
