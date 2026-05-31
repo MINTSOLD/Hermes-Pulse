@@ -838,7 +838,7 @@ def _start_gateway():
     print(f"[ConfigServer] 第 {_gateway_restart_count} 次自动启动 Gateway...")
     try:
         subprocess.Popen(
-            [str(HERMES_VEXE), "gateway", "start"],
+            [str(HERMES_VEXE), "gateway", "restart"],
             creationflags=0x08000000,  # CREATE_NO_WINDOW
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
