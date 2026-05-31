@@ -205,7 +205,6 @@ async function manualReconnect() {
   const el = document.getElementById('connection-status');
   const dot = el?.querySelector('.status-dot');
   const text = el?.querySelector('.status-text');
-  const startTime = Date.now();
 
   // 防止重复点击
   if (state._reconnecting) return;
@@ -214,80 +213,53 @@ async function manualReconnect() {
   // 第一步：完全断开 — 清除所有状态，像关闭软件一样
   state.connected = false;
   state.failReason = '';
+  state.isGenerating = false;
+  state.messages = [];
+  state.chatHistory = [];
+  state.sessions = [];
+  state.currentSession = null;
+  if (state.abortController) state.abortController.abort();
   updateConnectionStatus();
   btn.classList.add('spinning');
   btn?.classList.remove('connected');
   if (el) el.className = 'status-indicator connecting';
   if (dot) { dot.style.background = '#666666'; dot.style.animation = 'none'; }
 
-  // 定义检测步骤（带成功/失败状态追踪）
-  const steps = [
-    { name: '配置服务', ok: false, skip: false },
-    { name: 'AI 网关', ok: false, skip: false },
-    { name: '控制面板', ok: false, skip: false },
-  ];
+  // 清空聊天界面
+  const messagesEl = document.getElementById('messages');
+  if (messagesEl) messagesEl.innerHTML = '';
 
-  // 逐项检测
-  if (text) text.textContent = '① 检测配置服务...';
-  steps[0].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.ok).catch(() => false);
-  if (text) text.textContent = steps[0].ok ? '① 配置服务 ✓' : '① 配置服务 ✗ 修复中...';
+  // 第二步：显示重启进度
+  if (text) text.textContent = '重启中...';
+  await new Promise(r => setTimeout(r, 500));
 
-  // 如果配置服务挂了，先修复它（它是其他服务的基础）
-  if (!steps[0].ok) {
-    try { await startConfigServer(); } catch {}
-    await new Promise(r => setTimeout(r, 1500));
-    steps[0].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.ok).catch(() => false);
-    if (text) text.textContent = steps[0].ok ? '① 配置服务 ✓ 已恢复' : '① 配置服务 ✗ 无法恢复';
-  }
-
-  // 第二步：检测网关
-  if (text) text.textContent = '② 检测 AI 网关...';
-  await new Promise(r => setTimeout(r, 400));
-  steps[1].ok = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.status === 'ok').catch(() => false);
-  if (text) text.textContent = steps[1].ok ? '② AI 网关 ✓' : '② AI 网关 ✗ 修复中...';
-
-  // 网关挂了 → 重启网关
-  if (!steps[1].ok) {
-    try { await startGateway(); } catch {}
-    await new Promise(r => setTimeout(r, 1000));
-    steps[1].ok = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.status === 'ok').catch(() => false);
-    if (text) text.textContent = steps[1].ok ? '② AI 网关 ✓ 已恢复' : '② AI 网关 ✗ 无法恢复';
-  }
-
-  // 第三步：检测控制面板
-  if (text) text.textContent = '③ 检测控制面板...';
-  await new Promise(r => setTimeout(r, 400));
-  steps[2].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.dashboard === true).catch(() => false);
-  if (text) text.textContent = steps[2].ok ? '③ 控制面板 ✓' : '③ 控制面板 ✗ 修复中...';
-
-  if (!steps[2].ok) {
-    try { await startDashboard(); } catch {}
-    await new Promise(r => setTimeout(r, 1000));
-    steps[2].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.dashboard === true).catch(() => false);
-    if (text) text.textContent = steps[2].ok ? '③ 控制面板 ✓ 已恢复' : '③ 控制面板 ✗ 无法恢复';
-  }
-
-  // 第四步：重新加载配置 + 最终检测
-  if (text) text.textContent = '④ 加载配置...';
-  await new Promise(r => setTimeout(r, 300));
+  // 第三步：重新加载所有配置
+  if (text) text.textContent = '① 重新加载配置...';
   await loadRealConfig();
+
+  if (text) text.textContent = '② 加载模型列表...';
   loadModels();
+
+  if (text) text.textContent = '③ 重新加载会话...';
+  loadSessions();
+
+  if (text) text.textContent = '④ 检测连接状态...';
   await checkConnection();
 
   // 计算耗时
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   // 最终结果
-  const allOk = steps.every(s => s.ok || s.skip);
-  const failedNames = steps.filter(s => !s.ok && !s.skip).map(s => s.name);
   btn.classList.remove('spinning');
+  btn?.classList.remove('connected');
 
-  if (allOk) {
+  if (state.connected) {
     if (text) text.textContent = `已连接 · ${elapsed}s`;
-    showToolbarToast(`✓ 全部就绪 · ${elapsed}s`);
+    updateConnectionStatus();
+    showToolbarToast(`✓ 重启完成 · ${elapsed}s`);
   } else {
-    if (text) text.textContent = `未连接 · ${failedNames.join('、')} 不可用`;
-    showToolbarToast(`✗ ${failedNames.join('、')} 无法连接`);
+    if (text) text.textContent = `未连接 · ${state.failReason || '服务不可用'}`;
+    showToolbarToast(`✗ 重启完成，但 ${state.failReason || '服务不可用'}`);
   }
 
   state._reconnecting = false;
