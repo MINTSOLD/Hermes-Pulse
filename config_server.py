@@ -832,13 +832,11 @@ def _start_gateway():
     except Exception as e:
         print(f"[ConfigServer] 启动 Gateway 失败: {e}")
         return False
-    # 等待就绪（最多 15 秒）
-    for _ in range(15):
-        _time.sleep(1)
-        if _gateway_alive():
-            print("[ConfigServer] ✓ Gateway 已恢复")
-            return True
-    print("[ConfigServer] ✗ Gateway 启动超时")
+    # 不阻塞启动：直接检查当前状态，不等待
+    if _gateway_alive():
+        print("[ConfigServer] ✓ Gateway 已在线")
+        return True
+    print("[ConfigServer] ✗ Gateway 未运行（由 Scheduled Task 管理）")
     return False
 
 def _gateway_watchdog():
