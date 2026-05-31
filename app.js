@@ -15,10 +15,38 @@ const state = {
 };
 
 // Tab management
-let tabs = [{ id: 'tab-0', name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
+let tabs = loadSavedTabs();
 let currentTabIndex = 0;
 
 function currentTab() { return tabs[currentTabIndex]; }
+
+// ============================================
+// 本地会话持久化 (localStorage)
+// ============================================
+const STORAGE_KEY = 'hermes_pulse_tabs';
+
+function loadSavedTabs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved) && saved.length > 0) return saved;
+    }
+  } catch {}
+  return [{ id: 'tab-0', name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
+}
+
+function saveTabs() {
+  try {
+    // 只保存必要的数据（不保存 messagesHtml，太大）
+    const lite = tabs.map(t => ({
+      id: t.id, name: t.name, chatHistory: t.chatHistory || [],
+      totalPromptTokens: t.totalPromptTokens || 0, completedTokens: t.completedTokens || 0,
+      sessionId: t.sessionId, messagesHtml: ''
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lite));
+  } catch {}
+}
 
 // ============================================
 // 配置读取 — 直接用 window.__TAURI__
@@ -1150,6 +1178,7 @@ function newChat() {
   const newTab = { id: newId, name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) };
   tabs.push(newTab);
   currentTabIndex = tabs.length - 1;
+  saveTabs();
 
   // Reset shared state
   state.currentSession = null;
@@ -1185,6 +1214,7 @@ function switchTab(index) {
   tabs[currentTabIndex].messagesHtml = msgEl.innerHTML;
   tabs[currentTabIndex].chatHistory = [...(state.chatHistory || [])];
   tabs[currentTabIndex].totalPromptTokens = state.totalPromptTokens || 0;
+  saveTabs();
 
   currentTabIndex = index;
   const tab = currentTab();
@@ -1213,6 +1243,7 @@ function closeTab(index) {
   if (tabs.length <= 1) return; // Don't close last tab
   tabs.splice(index, 1);
   if (currentTabIndex >= tabs.length) currentTabIndex = tabs.length - 1;
+  saveTabs();
   switchTab(currentTabIndex);
 }
 
@@ -1996,6 +2027,7 @@ function sendMessage() {
       tabs[currentTabIndex].chatHistory = [...state.chatHistory];
       tabs[currentTabIndex].totalPromptTokens = state.totalPromptTokens;
       tabs[currentTabIndex].completedTokens = state.totalPromptTokens;
+      saveTabs();
 
       state.isGenerating = false;
       updateSendButton();
