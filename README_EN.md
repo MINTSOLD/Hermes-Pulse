@@ -19,6 +19,8 @@ Pure Black Aesthetic · Breathing Light Effects · Zero Frameworks · 30MB Memor
 
 ## ✨ What is Hermes Pulse
 
+> ⚠️ **Current version supports Windows 10/11 only** (built on pywebview + WebView2, native Windows components). macOS / Linux support is on the roadmap.
+
 Hermes Pulse is a **native desktop client** for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
 It's not another Electron wrapper, not another browser tab — it's a true native window built on **pywebview + WebView2**, designed for Windows, blending seamlessly with your system.

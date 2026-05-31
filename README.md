@@ -19,6 +19,8 @@
 
 ## ✨ 什么是 Hermes Pulse
 
+> ⚠️ **当前版本仅支持 Windows 10/11**（基于 pywebview + WebView2，Windows 原生组件）。macOS / Linux 适配已列入路线图。
+
 Hermes Pulse 是 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的**原生桌面客户端**。
 
 它不是又一个 Electron 包壳，不是又一个浏览器标签页——它是基于 **pywebview + WebView2** 打造的真正原生窗口，专为 Windows 而生，与系统浑然一体。
