@@ -259,11 +259,6 @@ async function manualReconnect() {
   }
 
   state._reconnecting = false;
-
-  // 热加载最新文件
-  setTimeout(() => {
-    location.href = location.pathname + '?_t=' + Date.now();
-  }, 600);
 }
 
 // ============================================
