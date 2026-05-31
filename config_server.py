@@ -520,17 +520,12 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             # 重启 Gateway 让配置生效
             import subprocess, time
             try:
-                subprocess.run(["sc", "stop", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
-                time.sleep(2)
-                # 杀掉残留进程
-                result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=5, creationflags=0x08000000)
-                for line in result.stdout.split("\n"):
-                    if ":8642" in line and "LISTENING" in line:
-                        pid = line.split()[-1]
-                        subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True, timeout=5, creationflags=0x08000000)
-                        break
-                time.sleep(1)
-                subprocess.run(["sc", "start", "HermesGateway"], capture_output=True, timeout=10, creationflags=0x08000000)
+                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
+                subprocess.Popen(
+                    [hermes_exe, "gateway", "start"],
+                    creationflags=0x08000000,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
             except Exception:
                 pass
             self._json_response({"ok": True})
