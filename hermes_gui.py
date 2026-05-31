@@ -213,24 +213,52 @@ def run_splash():
         except Exception:
             pass
 
-    # Semi-transparent dark bg + white status text
+    # Semi-transparent dark bg + white status text — 动态大小圆角矩形
     text_bg_y = logo_y + LOGO_SIZE // 2 + 22
-    canvas.create_rectangle(
-        W // 2 - 70, text_bg_y - 14,
-        W // 2 + 70, text_bg_y + 14,
-        fill="#333333", outline="", stipple="gray50"
-    )
 
-    # Use cross-platform font: fallback from Microsoft YaHei to system default
+    def _draw_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
+        """画圆角矩形（tkinter 没有原生支持，用 polygon 模拟）"""
+        points = [
+            x1+r, y1, x2-r, y1, x2, y1, x2, y1+r,
+            x2, y2-r, x2, y2, x2-r, y2, x1+r, y2,
+            x1, y2, x1, y2-r, x1, y1+r, x1, y1,
+        ]
+        return canvas.create_polygon(points, smooth=True, **kwargs)
+
     _splash_font = ("Helvetica", 10)
     if _IS_WIN:
         _splash_font = ("Microsoft YaHei", 10)
 
+    # 先创建文字，测量宽度后再画背景
     status_id = canvas.create_text(
         W // 2, text_bg_y,
         text="正 在 启 动 ...",
         font=_splash_font, fill="#cccccc", anchor="center"
     )
+    root.update()
+
+    def _update_splash_text(text):
+        """更新文字并动态调整背景大小"""
+        nonlocal text_bg_y
+        canvas.itemconfig(status_id, text=text)
+        root.update()
+        # 测量文字实际宽度
+        bbox = canvas.bbox(status_id)
+        if bbox:
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            pad_x, pad_y = 20, 10
+            rx1 = W // 2 - tw // 2 - pad_x
+            ry1 = text_bg_y - th // 2 - pad_y
+            rx2 = W // 2 + tw // 2 + pad_x
+            ry2 = text_bg_y + th // 2 + pad_y
+            # 删除旧背景（第一个 canvas 对象）
+            canvas.delete("splash_bg")
+            _draw_rounded_rect(canvas, rx1, ry1, rx2, ry2, 12,
+                               fill="#333333", outline="", stipple="gray50",
+                               tags="splash_bg")
+            # 把背景移到文字下面
+            canvas.tag_lower("splash_bg", status_id)
 
     root.update()
 
@@ -246,10 +274,7 @@ def run_splash():
     while time.time() - start_time < 3.0:
         elapsed = time.time() - start_time
         while text_idx < len(status_texts) and elapsed >= status_texts[text_idx][0]:
-            try:
-                canvas.itemconfig(status_id, text=status_texts[text_idx][1])
-            except Exception:
-                break
+            _update_splash_text(status_texts[text_idx][1])
             text_idx += 1
         try:
             root.update()
