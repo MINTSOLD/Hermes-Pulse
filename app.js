@@ -1051,7 +1051,9 @@ function autoResize() {
 async function loadSessions() {
   // 从 Gateway 拉取历史会话列表
   try {
-    const r = await fetch(`${API_BASE}/api/sessions`, { signal: AbortSignal.timeout(5000) });
+    const headers = {};
+    if (state.gatewayApiKey) headers['Authorization'] = `Bearer ${state.gatewayApiKey}`;
+    const r = await fetch(`${API_BASE}/api/sessions`, { headers, signal: AbortSignal.timeout(5000) });
     if (r.ok) {
       const data = await r.json();
       state.sessions = Array.isArray(data) ? data : (data.sessions || []);
@@ -1086,7 +1088,9 @@ async function loadSessionById(id) {
 
   // 尝试加载会话历史
   try {
-    const r = await fetch(`${API_BASE}/api/sessions/${id}/messages`, { signal: AbortSignal.timeout(5000) });
+    const headers = {};
+    if (state.gatewayApiKey) headers['Authorization'] = `Bearer ${state.gatewayApiKey}`;
+    const r = await fetch(`${API_BASE}/api/sessions/${id}/messages`, { headers, signal: AbortSignal.timeout(5000) });
     if (r.ok) {
       const data = await r.json();
       if (Array.isArray(data)) {
@@ -1123,7 +1127,9 @@ async function loadSessionById(id) {
 
 async function deleteSession(id) {
   try {
-    await fetch(`${API_BASE}/api/sessions/${id}`, { method: 'DELETE' });
+    const delHeaders = {};
+    if (state.gatewayApiKey) delHeaders['Authorization'] = `Bearer ${state.gatewayApiKey}`;
+    await fetch(`${API_BASE}/api/sessions/${id}`, { method: 'DELETE', headers: delHeaders });
     state.sessions = state.sessions.filter(s => s.id !== id);
     if (state.currentSession === id) state.currentSession = null;
     renderSessions();
