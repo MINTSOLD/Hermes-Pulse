@@ -207,56 +207,44 @@ async function manualReconnect() {
   const text = el?.querySelector('.status-text');
   const startTime = Date.now();
 
-  // 防止重复点击
   if (state._reconnecting) return;
   state._reconnecting = true;
 
-  // 第一步：显示重启中状态 — 保留所有聊天内容不动
+  // 显示重启中
   state.connected = false;
-  state.failReason = '';
   if (state.abortController) state.abortController.abort();
   btn.classList.add('spinning');
-  btn?.classList.remove('connected');
   if (el) el.className = 'status-indicator restarting';
-  if (dot) { dot.style.background = '#d4af37'; dot.style.animation = 'none'; }
-  if (text) text.textContent = '重启中...';
+  if (dot) { dot.style.background = '#d4af37'; }
+  if (text) text.textContent = '刷新中...';
 
-  // 第二步：重新加载所有配置（不碰聊天）
-  if (text) text.textContent = '重启中 · ① 重新加载配置...';
+  // 加载配置
   await loadRealConfig();
-
-  if (text) text.textContent = '重启中 · ② 加载模型列表...';
   loadModels();
-
-  if (text) text.textContent = '重启中 · ③ 重新加载会话...';
   loadSessions();
 
-  if (text) text.textContent = '重启中 · ④ 检测连接状态...';
+  // 检测连接
   await checkConnection();
 
-  // 计算耗时
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-  // 最终结果
   btn.classList.remove('spinning');
 
   if (state.connected) {
     if (text) text.textContent = `已连接 · ${elapsed}s`;
     updateConnectionStatus();
-    showToolbarToast(`✓ 重启完成 · ${elapsed}s`);
+    showToolbarToast(`✓ 刷新完成 · ${elapsed}s`);
   } else {
     if (text) text.textContent = `未连接 · ${state.failReason || '服务不可用'}`;
     updateConnectionStatus();
-    showToolbarToast(`✗ 重启完成，但 ${state.failReason || '服务不可用'}`);
+    showToolbarToast(`✗ 刷新完成 · ${state.failReason || '服务不可用'}`);
   }
 
   state._reconnecting = false;
 
-  // 强制刷新页面加载最新文件 — 用时间戳 URL 绕过 WebView2 缓存
+  // 热加载最新文件
   setTimeout(() => {
-    const base = location.pathname;
-    location.href = base + '?_t=' + Date.now();
-  }, 800);
+    location.href = location.pathname + '?_t=' + Date.now();
+  }, 600);
 }
 
 // ============================================
