@@ -210,7 +210,7 @@ async function manualReconnect() {
   if (state._reconnecting) return;
   state._reconnecting = true;
 
-  // 显示重启中
+  // 显示刷新中
   state.connected = false;
   if (state.abortController) state.abortController.abort();
   btn.classList.add('spinning');
@@ -218,13 +218,32 @@ async function manualReconnect() {
   if (dot) { dot.style.background = '#d4af37'; }
   if (text) text.textContent = '刷新中...';
 
-  // 加载配置
+  // 1. 加载配置
   await loadRealConfig();
   loadModels();
   loadSessions();
 
-  // 检测连接
+  // 2. 检测连接
   await checkConnection();
+
+  // 3. 如果 gateway 没连上，尝试修复
+  if (!state.connected) {
+    if (text) text.textContent = '修复网关...';
+    try {
+      await fetch(`${CONFIG_SERVER}/restart_gateway`, { method: 'POST', signal: AbortSignal.timeout(10000) });
+      // 等待 gateway 恢复
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        await checkConnection();
+        if (state.connected) break;
+      }
+    } catch {}
+  }
+
+  // 4. 最终检测
+  if (!state.connected) {
+    await checkConnection();
+  }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   btn.classList.remove('spinning');

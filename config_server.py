@@ -641,9 +641,20 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             self._json_response({"models": models})
 
         elif self.path == "/restart_gateway":
-            # Gateway 由 Scheduled Task 管理，不需要手动重启
-            # 仅返回 ok，让前端知道 gateway 状态
-            self._json_response({"ok": True, "note": "gateway managed by scheduled task"})
+            import subprocess
+            try:
+                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
+                if not os.path.exists(hermes_exe):
+                    self._json_response({"ok": False, "error": "hermes.exe not found"})
+                else:
+                    subprocess.Popen(
+                        [hermes_exe, "gateway", "start"],
+                        creationflags=0x08000000,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
 
         elif self.path == "/start_dashboard":
             import subprocess
