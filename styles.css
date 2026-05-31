@@ -516,6 +516,8 @@ body {
 .file-link { color: #6ea8fe; cursor: pointer; text-decoration: underline !important; text-decoration-style: solid !important; text-underline-offset: 3px; background: rgba(110,168,254,0.1); padding: 1px 4px; border-radius: 3px; transition: all 0.15s; font-weight: 500; }
 .file-link:hover { color: #93c5fd; background: rgba(110,168,254,0.2); }
 .file-link::before { content: '📄 '; font-size: 12px; }
+.file-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1a1a1a; color: #e8e8e8; padding: 12px 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); font-size: 13px; z-index: 9999; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+.file-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 /* 分组折叠 */
 .model-group { margin-bottom: 4px; }
 .model-group-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: background 0.15s; font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }

@@ -2036,11 +2036,22 @@ async function openFileByPath(filepath) {
   try {
     const resp = await fetch(`/read_file?path=${encodeURIComponent(filepath)}`);
     const data = await resp.json();
-    if (data.error) { alert('打开失败: ' + data.error); return; }
+    if (data.error) { showFileToast('打开失败: ' + data.error); return; }
     openFileViewer(data.filename, data.content);
   } catch (e) {
-    alert('打开文件失败: ' + e.message);
+    showFileToast('打开失败: ' + e.message);
   }
+}
+// 深色 Toast 通知（替代原生 alert）
+function showFileToast(msg) {
+  const existing = document.querySelector('.file-toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'file-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3000);
 }
 // 处理消息中的文件路径，使其可点击打开
 function processFileLinks(container) {

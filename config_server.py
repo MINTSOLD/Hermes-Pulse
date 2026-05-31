@@ -385,6 +385,50 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json_response({"error": str(e)}, 500)
 
+        elif self.path.startswith("/view/"):
+            # Markdown 文件预览 — 输出 HTML 渲染页面
+            from urllib.parse import unquote
+            filename = unquote(self.path[len("/view/"):].split("?")[0])
+            # 安全检查：只允许当前目录下的文件
+            GUI_DIR = Path(__file__).parent
+            fpath = GUI_DIR / filename
+            try:
+                if not fpath.exists() or not fpath.suffix.lower() == ".md":
+                    self.send_response(404)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(b"<h1>404 - File not found</h1>")
+                    return
+                content = fpath.read_text(encoding="utf-8", errors="replace")
+                html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{filename}</title>
+<style>
+body {{ background:#000; color:#d4af37; font-family:'Segoe UI',sans-serif; padding:40px; max-width:900px; margin:0 auto; line-height:1.8; }}
+h1,h2,h3 {{ color:#d4af37; border-bottom:1px solid rgba(212,175,55,0.3); padding-bottom:8px; }}
+code {{ background:rgba(212,175,55,0.1); padding:2px 6px; border-radius:4px; font-size:0.9em; }}
+pre {{ background:rgba(255,255,255,0.05); padding:16px; border-radius:8px; overflow-x:auto; border:1px solid rgba(212,175,55,0.2); }}
+pre code {{ background:none; padding:0; }}
+a {{ color:#d4af37; }}
+blockquote {{ border-left:3px solid rgba(212,175,55,0.5); padding-left:16px; margin-left:0; color:#aaa; }}
+table {{ border-collapse:collapse; width:100%; }}
+th,td {{ border:1px solid rgba(212,175,55,0.3); padding:8px; text-align:left; }}
+th {{ background:rgba(212,175,55,0.1); }}
+</style></head><body>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.body.innerHTML = '<div id="content"></div>';
+document.getElementById('content').innerHTML = marked.parse({content!r});
+</script></body></html>"""
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(f"<h1>500 - {e}</h1>".encode("utf-8"))
         else:
             self.send_response(404)
             self._cors()
