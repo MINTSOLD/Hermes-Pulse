@@ -252,8 +252,11 @@ async function manualReconnect() {
 
   state._reconnecting = false;
 
-  // 强制刷新页面加载最新文件（CSS/JS），会话在服务端保留可恢复
-  setTimeout(() => { location.reload(true); }, 800);
+  // 强制刷新页面加载最新文件 — 用时间戳 URL 绕过 WebView2 缓存
+  setTimeout(() => {
+    const base = location.pathname;
+    location.href = base + '?_t=' + Date.now();
+  }, 800);
 }
 
 // ============================================
