@@ -1775,17 +1775,24 @@ function sendMessage() {
       }
       if (event === 'status' || event === 'info') {
         const msg = parsed.message || parsed.text || '';
-        if (msg) addSystemEvent(systemEvents, 'ℹ️', msg);
+        if (!msg) return;
+        // 自主进化 / 自我提升类事件 → 特殊样式
+        const isSelfImprove = /self[- ]?improv|memory.*updated|自我|进化|升级|learn|review/i.test(msg);
+        if (isSelfImprove) {
+          addSystemEvent(systemEvents, '🧬', '自主进化 · ' + msg, true);
+        } else {
+          addSystemEvent(systemEvents, 'ℹ️', msg);
+        }
         return;
       }
     }
 
-    function addSystemEvent(container, icon, text) {
+    function addSystemEvent(container, icon, text, isEvolution = false) {
       const existing = container.querySelector('.sys-event:last-child');
       // 防重复：如果最后一个事件文本相同就跳过
       if (existing && existing.querySelector('.sys-event-text')?.textContent === text) return;
       const el = document.createElement('div');
-      el.className = 'sys-event';
+      el.className = isEvolution ? 'sys-event sys-evolution' : 'sys-event';
       const startTime = Date.now();
       el.innerHTML = `<span class="sys-event-icon">${icon}</span><span class="sys-event-text">${text}</span><span class="sys-event-timer">0s</span>`;
       container.appendChild(el);
