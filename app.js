@@ -1986,3 +1986,95 @@ function removeQueueItem(index) {
   state.messageQueue.splice(index, 1);
   renderQueue();
 }
+
+// ============================================
+// 文件查看器（MD / TXT）
+// ============================================
+
+function openFileViewer(filename, content) {
+  const viewer = document.getElementById('file-viewer');
+  const titleEl = document.getElementById('file-viewer-title');
+  const contentEl = document.getElementById('file-viewer-content');
+  if (!viewer || !contentEl) return;
+
+  titleEl.textContent = filename;
+  const ext = filename.split('.').pop().toLowerCase();
+
+  if (ext === 'md' || ext === 'markdown') {
+    contentEl.innerHTML = renderMarkdown(content);
+    contentEl.className = '';
+  } else {
+    contentEl.textContent = content;
+    contentEl.className = 'file-viewer-text';
+  }
+
+  viewer.classList.remove('hidden');
+}
+
+function closeFileViewer() {
+  const viewer = document.getElementById('file-viewer');
+  if (viewer) viewer.classList.add('hidden');
+}
+
+// 点击遮罩关闭
+document.addEventListener('DOMContentLoaded', () => {
+  const viewer = document.getElementById('file-viewer');
+  if (viewer) {
+    viewer.addEventListener('click', (e) => {
+      if (e.target === viewer) closeFileViewer();
+    });
+  }
+});
+// ESC 键关闭文件查看器
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeFileViewer();
+});
+
+// 通过路径打开远程文件（从 config_server 获取）
+async function openFileByPath(filepath) {
+  try {
+    const resp = await fetch(`/read_file?path=${encodeURIComponent(filepath)}`);
+    const data = await resp.json();
+    if (data.error) { alert('打开失败: ' + data.error); return; }
+    openFileViewer(data.filename, data.content);
+  } catch (e) {
+    alert('打开文件失败: ' + e.message);
+  }
+}
+
+// 简易 Markdown → HTML 渲染器
+function renderMarkdown(md) {
+  let html = md
+    // 代码块
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 标题
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // 粗体和斜体
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // 链接
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    // 引用
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    // 水平线
+    .replace(/^---$/gm, '<hr>')
+    // 无序列表
+    .replace(/^[*\-+] (.+)$/gm, '<li>$1</li>')
+    // 换行
+    .replace(/\n/g, '<br>');
+
+  // 包裹连续的 <li> 为 <ul>
+  html = html.replace(/(<li>.*?<\/li>(<br>)?)+/g, (match) => {
+    return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+  });
+
+  // 清理多余的 <br>
+  html = html.replace(/<br>(<\/?(h[1-3]|ul|ol|li|blockquote|pre|hr))/g, '$1');
+  html = html.replace(/(<\/?(h[1-3]|ul|ol|li|blockquote|pre|hr)[^>]*>)<br>/g, '$1');
+
+  return html;
+}

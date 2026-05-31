@@ -364,6 +364,26 @@ class Handler(BaseHTTPRequestHandler):
                     self._json_response({'status': 'wait'})
             else:
                 self._json_response({'status': state.get('status', 'idle')})
+        elif self.path.startswith("/read_file"):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            filepath = params.get("path", [""])[0]
+            if not filepath:
+                self._json_response({"error": "missing path parameter"}, 400)
+                return
+            try:
+                p = Path(filepath)
+                if not p.exists():
+                    self._json_response({"error": "file not found"}, 404)
+                    return
+                if p.stat().st_size > 1_000_000:
+                    self._json_response({"error": "file too large (>1MB)"}, 413)
+                    return
+                content = p.read_text(encoding="utf-8", errors="replace")
+                self._json_response({"filename": p.name, "content": content})
+            except Exception as e:
+                self._json_response({"error": str(e)}, 500)
 
         else:
             self.send_response(404)

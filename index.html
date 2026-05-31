@@ -47,6 +47,18 @@
         <div id="model-modal" class="modal hidden">
           <div id="modal-content" class="modal-content"></div>
         </div>
+        <!-- 文件查看器模态框 -->
+        <div id="file-viewer" class="modal hidden">
+          <div class="modal-content file-viewer-content">
+            <div class="modal-header">
+              <h3 id="file-viewer-title">文件查看</h3>
+              <button class="btn-close" onclick="closeFileViewer()">&times;</button>
+            </div>
+            <div class="modal-body file-viewer-body">
+              <div id="file-viewer-content"></div>
+            </div>
+          </div>
+        </div>
 
         <!-- 设置面板 -->
         <div id="settings-panel" class="settings-panel hidden">
