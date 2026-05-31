@@ -367,7 +367,8 @@ def ensure_gateway():
         }
         if _IS_WIN:
             kwargs["creationflags"] = 0x08000000
-        subprocess.Popen([hermes_cmd, "gateway", "start"], **kwargs)
+        # 使用 gateway restart 避免交互式提示 (start 会询问是否安装服务)
+        subprocess.Popen([hermes_cmd, "gateway", "restart"], **kwargs)
     except Exception:
         pass
     for i in range(20):

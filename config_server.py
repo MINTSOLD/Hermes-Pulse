@@ -630,29 +630,33 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
         elif self.path == "/restart_gateway":
             import subprocess
             try:
-                # 用 pythonw + 完整路径避免弹黑窗口
-                hermes_main = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "pythonw.exe")
-                script = os.path.join(str(HERMES_DIR), "hermes-agent", "hermes_cli", "main.py")
-                subprocess.Popen(
-                    [hermes_main, script, "gateway", "restart"],
-                    creationflags=0x08000000,  # CREATE_NO_WINDOW
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                self._json_response({"ok": True})
+                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
+                if not os.path.exists(hermes_exe):
+                    self._json_response({"ok": False, "error": "hermes.exe not found"})
+                else:
+                    # hermes gateway restart 不需要用户交互，直接重启已安装的服务
+                    subprocess.Popen(
+                        [hermes_exe, "gateway", "restart"],
+                        creationflags=0x08000000,  # CREATE_NO_WINDOW
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
 
         elif self.path == "/start_dashboard":
             import subprocess
             try:
-                hermes_main = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "pythonw.exe")
-                script = os.path.join(str(HERMES_DIR), "hermes-agent", "hermes_cli", "main.py")
-                subprocess.Popen(
-                    [hermes_main, script, "dashboard"],
-                    creationflags=0x08000000,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                self._json_response({"ok": True})
+                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
+                if not os.path.exists(hermes_exe):
+                    self._json_response({"ok": False, "error": "hermes.exe not found"})
+                else:
+                    subprocess.Popen(
+                        [hermes_exe, "dashboard"],
+                        creationflags=0x08000000,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
 
