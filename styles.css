@@ -404,7 +404,7 @@ body {
 #input-area { padding: 20px 24px 24px; background: var(--bg-primary); position: relative; }
 #input-area > .breath-line { top: 0; }
 
-.input-container { max-width: 900px; margin: 0 auto; position: relative; }
+.input-container { max-width: 700px; margin: 0 auto; position: relative; }
 
 .token-bar {
   display: inline-flex; align-items: center; gap: 12px;
