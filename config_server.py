@@ -296,14 +296,8 @@ class Handler(BaseHTTPRequestHandler):
             # 代理 Gateway 请求（转发 Authorization 头）
             real_path = self.path[len("/gateway"):]
             auth = self.headers.get("Authorization", "")
-            if self.command == "POST":
-                length = int(self.headers.get("Content-Length", 0))
-                body = json.loads(self.rfile.read(length)) if length else {}
-                self._proxy_to_gateway(real_path, method="POST", body=body,
-                                       headers={"Authorization": auth} if auth else None)
-            else:
-                self._proxy_to_gateway(real_path, method="GET",
-                                       headers={"Authorization": auth} if auth else None)
+            self._proxy_to_gateway(real_path, method="GET",
+                                   headers={"Authorization": auth} if auth else None)
             return
         elif self.path.startswith("/fetch_models"):
             from urllib.parse import urlparse, parse_qs
@@ -458,6 +452,14 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length)) if length else {}
+
+        if self.path.startswith("/gateway/"):
+            # 代理 Gateway POST 请求（含 Authorization 头转发）
+            real_path = self.path[len("/gateway"):]
+            auth = self.headers.get("Authorization", "")
+            self._proxy_to_gateway(real_path, method="POST", body=body,
+                                   headers={"Authorization": auth} if auth else None)
+            return
 
         if self.path == "/add_provider":
             name, base_url, api_key, model = body.get("name",""), body.get("base_url",""), body.get("api_key",""), body.get("model","")
