@@ -4,76 +4,106 @@ title Hermes Pulse Installer
 color 0F
 
 echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║       ✦  Hermes Pulse  Installer  ✦      ║
-echo  ║       轻于形 · 智于心                      ║
-echo  ╚══════════════════════════════════════════╝
+echo  ========================================
+echo       Hermes Pulse Installer
+echo       Light in Form. Intelligent at Heart.
+echo  ========================================
 echo.
 
+:: 获取脚本所在目录（解压后的目录）
+set "SRC_DIR=%~dp0"
+set "SRC_DIR=%SRC_DIR:~0,-1%"
+
 :: 检查 Python
-echo  [1/4] 检查 Python 环境...
+echo  [1/5] Checking Python...
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo  ❌ 未检测到 Python，请先安装 Python 3.11+
-    echo     下载地址: https://www.python.org/downloads/
+    echo  [ERROR] Python not found.
+    echo  Please install Python 3.11+ from:
+    echo  https://www.python.org/downloads/
+    echo.
     pause
     exit /b 1
 )
 for /f "tokens=2" %%a in ('python --version 2^>^&1') do set PYVER=%%a
-echo  ✓ Python %PYVER%
+echo  OK Python %PYVER%
 
 :: 检查 pywebview
 echo.
-echo  [2/4] 检查 pywebview...
+echo  [2/5] Checking pywebview...
 python -c "import webview" >nul 2>&1
 if errorlevel 1 (
-    echo  ↓ 正在安装 pywebview...
+    echo  Installing pywebview...
     pip install pywebview >nul 2>&1
     if errorlevel 1 (
-        echo  ❌ pywebview 安装失败
+        echo  [ERROR] Failed to install pywebview.
+        echo  Please run: pip install pywebview
         pause
         exit /b 1
     )
 )
-echo  ✓ pywebview 已就绪
+echo  OK pywebview ready
 
-:: 复制文件
+:: 创建安装目录
 echo.
-echo  [3/4] 安装到程序目录...
-set INSTALL_DIR=%ProgramFiles%\Hermes Agent
-if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+echo  [3/5] Installing files...
+set "INSTALL_DIR=%ProgramFiles%\Hermes Agent"
+if not exist "%INSTALL_DIR%" (
+    mkdir "%INSTALL_DIR%"
+    if errorlevel 1 (
+        echo  [ERROR] Cannot create %INSTALL_DIR%
+        echo  Try running as Administrator.
+        pause
+        exit /b 1
+    )
+)
 
-copy /Y "%~dp0hermes_gui.py" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0config_server.py" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0app.js" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0styles.css" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0index.html" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0hermes-logo.png" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0hermes.ico" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0hermes-titlebar.ico" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0start_config_server.vbs" "%INSTALL_DIR%\" >nul 2>&1
-copy /Y "%~dp0LICENSE" "%INSTALL_DIR%\" >nul 2>&1
+:: 复制核心文件
+copy /Y "%SRC_DIR%\hermes_gui.py" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\config_server.py" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\app.js" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\styles.css" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\index.html" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\hermes-logo.png" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\hermes.ico" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\hermes-titlebar.ico" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\start_config_server.vbs" "%INSTALL_DIR%\" >nul
+copy /Y "%SRC_DIR%\LICENSE" "%INSTALL_DIR%\" >nul
 
-echo  ✓ 已安装到 %INSTALL_DIR%
+:: 验证安装
+if not exist "%INSTALL_DIR%\hermes_gui.py" (
+    echo  [ERROR] File copy failed.
+    pause
+    exit /b 1
+)
+echo  OK Installed to %INSTALL_DIR%
 
 :: 创建桌面快捷方式
 echo.
-echo  [4/4] 创建桌面快捷方式...
-powershell -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut('%USERPROFILE%\Desktop\Hermes Pulse.lnk');$s.TargetPath='pythonw.exe';$s.Arguments='hermes_gui.py';$s.WorkingDirectory='%INSTALL_DIR%';$s.IconLocation='%INSTALL_DIR%\hermes.ico';$s.Save()" >nul 2>&1
-echo  ✓ 桌面快捷方式已创建
+echo  [4/5] Creating desktop shortcut...
+powershell -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut([System.IO.Path]::Combine([System.Environment]::GetFolderPath('Desktop'),'Hermes Pulse.lnk')); $s.TargetPath='pythonw.exe'; $s.Arguments='hermes_gui.py'; $s.WorkingDirectory='%INSTALL_DIR%'; $s.IconLocation='%INSTALL_DIR%\hermes.ico'; $s.Save()" >nul 2>&1
+if exist "%USERPROFILE%\Desktop\Hermes Pulse.lnk" (
+    echo  OK Desktop shortcut created
+) else (
+    echo  Warning: Shortcut creation failed, but installation is complete
+)
 
+:: 完成
 echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║         ✦  安装完成！  ✦                  ║
-echo  ╠══════════════════════════════════════════╣
-echo  ║  双击桌面的 "Hermes Pulse" 即可启动       ║
-echo  ║  或在开始菜单中找到 Hermes Pulse          ║
-echo  ╚══════════════════════════════════════════╝
+echo  [5/5] Done!
+echo.
+echo  ========================================
+echo       Installation Complete!
+echo  ========================================
+echo.
+echo  Location: %INSTALL_DIR%
+echo  Launch:   Double-click "Hermes Pulse" on desktop
+echo            or run: pythonw.exe hermes_gui.py
 echo.
 
-set /p LAUNCH="是否立即启动？(Y/N): "
+set /p LAUNCH="Launch now? (Y/N): "
 if /i "%LAUNCH%"=="Y" (
-    echo  启动中...
+    echo  Starting Hermes Pulse...
     start "" pythonw.exe "%INSTALL_DIR%\hermes_gui.py"
 )
 
