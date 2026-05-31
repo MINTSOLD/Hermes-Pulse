@@ -814,29 +814,47 @@ def _gateway_alive():
         s.close()
 
 def _start_gateway():
-    """通过 hermes CLI 启动 Gateway（无黑窗口）"""
+    """通过 pythonw.exe 静默启动 Gateway（绝对不弹黑窗口）"""
     global _gateway_restart_count, _gateway_last_restart
-    if not HERMES_VEXE.exists():
-        print("[ConfigServer] hermes.exe 未找到，跳过 Gateway 启动")
-        return False
+    # 已经在运行就不用启动
+    if _gateway_alive():
+        return True
     # 防抖：60秒内不重复重启
     now = _time.time()
     if now - _gateway_last_restart < 60:
         return False
     _gateway_last_restart = now
     _gateway_restart_count += 1
-    print(f"[ConfigServer] 第 {_gateway_restart_count} 次自动启动 Gateway...")
+    print(f"[ConfigServer] 第 {_gateway_restart_count} 次自动启动 Gateway...", flush=True)
     try:
-        # Gateway 由 Scheduled Task 管理，不手动启动，避免弹黑窗口
-        pass
+        import subprocess
+        # 找到 hermes-agent venv 里的 pythonw.exe
+        pythonw = HERMES_DIR / "hermes-agent" / "venv" / "Scripts" / "pythonw.exe"
+        if not pythonw.exists():
+            # 备选：系统 pythonw.exe
+            import shutil
+            pythonw = Path(shutil.which("pythonw.exe") or "")
+        if not pythonw.exists():
+            print("[ConfigServer] pythonw.exe 未找到，跳过 Gateway 启动")
+            return False
+        # 用 pythonw.exe 静默启动 gateway（无控制台窗口）
+        subprocess.Popen(
+            [str(pythonw), "-m", "hermes_cli.main", "gateway", "run"],
+            cwd=str(HERMES_DIR / "hermes-agent"),
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception as e:
         print(f"[ConfigServer] 启动 Gateway 失败: {e}")
         return False
-    # 不阻塞启动：直接检查当前状态，不等待
-    if _gateway_alive():
-        print("[ConfigServer] ✓ Gateway 已在线")
-        return True
-    print("[ConfigServer] ✗ Gateway 未运行（由 Scheduled Task 管理）")
+    # 等待 Gateway 端口就绪（最多 15 秒）
+    for _ in range(15):
+        _time.sleep(1)
+        if _gateway_alive():
+            print("[ConfigServer] ✓ Gateway 已启动")
+            return True
+    print("[ConfigServer] ✗ Gateway 启动超时")
     return False
 
 def _gateway_watchdog():

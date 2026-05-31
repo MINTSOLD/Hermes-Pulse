@@ -290,7 +290,7 @@ def run_splash():
 
     start_time = time.time()
     step = 0
-    max_wait = 15.0  # 网关启动需要时间，给够 15 秒
+    max_wait = 8.0  # 网关已通过 Scheduled Task 启动，不需要等太久
 
     while time.time() - start_time < max_wait:
         elapsed = time.time() - start_time
@@ -308,8 +308,9 @@ def run_splash():
             if _port_ok(8642):
                 _update_splash_text("AI 网 关 就 绪 ✓")
                 step = 3
-            else:
-                _update_splash_text("启 动 AI 网 关 ...")
+            elif elapsed >= 3.0:
+                # 网关没就绪也不要卡住，直接继续
+                step = 3
         elif step == 3 and elapsed >= 2.0:
             _update_splash_text("准 备 就 绪")
             step = 4
@@ -433,12 +434,31 @@ def ensure_config_server():
 
 
 def ensure_gateway():
-    """等待 Gateway 端口就绪（由 Windows Scheduled Task 管理，不手动启动避免黑窗口）"""
+    """确保 Gateway 运行，如未运行则通过 pythonw.exe 静默启动"""
     if _port_alive(8642):
         return
-    # Gateway 由 Windows Scheduled Task 管理，不手动启动
-    # 只等待端口就绪（最多 20 秒）
-    for i in range(20):
+    # 先等 5 秒，让 Scheduled Task 有机会启动
+    for i in range(5):
+        time.sleep(1)
+        if _port_alive(8642):
+            return
+    # 还没运行？用 pythonw.exe 静默启动（绝对不弹黑窗口）
+    if _IS_WIN:
+        hermes_dir = Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"
+        pythonw = hermes_dir / "venv" / "Scripts" / "pythonw.exe"
+        if pythonw.exists():
+            try:
+                subprocess.Popen(
+                    [str(pythonw), "-m", "hermes_cli.main", "gateway", "run"],
+                    cwd=str(hermes_dir),
+                    creationflags=0x08000000,  # CREATE_NO_WINDOW
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                pass
+    # 等待 Gateway 端口就绪（最多 15 秒）
+    for i in range(15):
         time.sleep(1)
         if _port_alive(8642):
             return

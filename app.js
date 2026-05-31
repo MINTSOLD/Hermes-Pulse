@@ -271,11 +271,19 @@ async function startConfigServer() {
 }
 
 async function startGateway() {
-  // Gateway 由 Windows Scheduled Task 管理，不主动启动
-  // 只检测是否在线
+  // 尝试通过 config_server 启动 gateway
   try {
-    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
-    if (r.ok) return true;
+    const r = await fetch(`${CONFIG_SERVER}/restart_gateway`, { method: 'POST', signal: AbortSignal.timeout(10000) });
+    if (r.ok) {
+      // 等待 gateway 就绪
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const hr = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
+          if (hr.ok) return true;
+        } catch {}
+      }
+    }
   } catch {}
   return false;
 }
