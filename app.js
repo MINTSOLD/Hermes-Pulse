@@ -205,56 +205,92 @@ async function manualReconnect() {
   const el = document.getElementById('connection-status');
   const dot = el?.querySelector('.status-dot');
   const text = el?.querySelector('.status-text');
+  const startTime = Date.now();
 
-  // 第一步：显示未连接
+  // 防止重复点击
+  if (state._reconnecting) return;
+  state._reconnecting = true;
+
+  // 第一步：完全断开 — 清除所有状态，像关闭软件一样
   state.connected = false;
+  state.failReason = '';
   updateConnectionStatus();
-
-  // 第二步：按钮持续旋转 + 显示检测中
   btn.classList.add('spinning');
+  btn?.classList.remove('connected');
   if (el) el.className = 'status-indicator connecting';
   if (dot) { dot.style.background = '#666666'; dot.style.animation = 'none'; }
-  if (text) text.textContent = '检测所有服务配置...';
-  btn?.classList.remove('connected');
 
-  // 逐项检测并修复
+  // 定义检测步骤（带成功/失败状态追踪）
   const steps = [
-    { name: '配置服务', check: () => fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.ok).catch(() => false),
-      fix: async () => { await startConfigServer(); } },
-    { name: '网关', check: () => fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.status === 'ok').catch(() => false),
-      fix: async () => { await startGateway(); } },
-    { name: '控制面板', check: async () => {
-        try {
-          const r = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) });
-          const d = await r.json();
-          return d.dashboard === true;
-        } catch { return false; }
-      },
-      fix: async () => { await startDashboard(); } },
+    { name: '配置服务', ok: false, skip: false },
+    { name: 'AI 网关', ok: false, skip: false },
+    { name: '控制面板', ok: false, skip: false },
   ];
 
-  for (const step of steps) {
-    if (text) text.textContent = `检测 ${step.name}...`;
-    await new Promise(r => setTimeout(r, 600)); // 保证用户能看到
-    let ok = await step.check();
-    if (!ok) {
-      if (text) text.textContent = `修复 ${step.name}...`;
-      try { await step.fix(); } catch {}
-      await new Promise(r => setTimeout(r, 1500));
-      ok = await step.check();
-    }
+  // 逐项检测
+  if (text) text.textContent = '① 检测配置服务...';
+  steps[0].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.ok).catch(() => false);
+  if (text) text.textContent = steps[0].ok ? '① 配置服务 ✓' : '① 配置服务 ✗ 修复中...';
+
+  // 如果配置服务挂了，先修复它（它是其他服务的基础）
+  if (!steps[0].ok) {
+    try { await startConfigServer(); } catch {}
+    await new Promise(r => setTimeout(r, 1500));
+    steps[0].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.ok).catch(() => false);
+    if (text) text.textContent = steps[0].ok ? '① 配置服务 ✓ 已恢复' : '① 配置服务 ✗ 无法恢复';
   }
 
-  // 第三步：最终检测
-  if (text) text.textContent = '最终检测...';
-  await new Promise(r => setTimeout(r, 800));
+  // 第二步：检测网关
+  if (text) text.textContent = '② 检测 AI 网关...';
+  await new Promise(r => setTimeout(r, 400));
+  steps[1].ok = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.status === 'ok').catch(() => false);
+  if (text) text.textContent = steps[1].ok ? '② AI 网关 ✓' : '② AI 网关 ✗ 修复中...';
+
+  // 网关挂了 → 重启网关
+  if (!steps[1].ok) {
+    try { await startGateway(); } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+    steps[1].ok = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.status === 'ok').catch(() => false);
+    if (text) text.textContent = steps[1].ok ? '② AI 网关 ✓ 已恢复' : '② AI 网关 ✗ 无法恢复';
+  }
+
+  // 第三步：检测控制面板
+  if (text) text.textContent = '③ 检测控制面板...';
+  await new Promise(r => setTimeout(r, 400));
+  steps[2].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.dashboard === true).catch(() => false);
+  if (text) text.textContent = steps[2].ok ? '③ 控制面板 ✓' : '③ 控制面板 ✗ 修复中...';
+
+  if (!steps[2].ok) {
+    try { await startDashboard(); } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+    steps[2].ok = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(3000) }).then(r => r.json()).then(d => d.dashboard === true).catch(() => false);
+    if (text) text.textContent = steps[2].ok ? '③ 控制面板 ✓ 已恢复' : '③ 控制面板 ✗ 无法恢复';
+  }
+
+  // 第四步：重新加载配置 + 最终检测
+  if (text) text.textContent = '④ 加载配置...';
+  await new Promise(r => setTimeout(r, 300));
   await loadRealConfig();
   loadModels();
   await checkConnection();
 
+  // 计算耗时
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  // 最终结果
+  const allOk = steps.every(s => s.ok || s.skip);
+  const failedNames = steps.filter(s => !s.ok && !s.skip).map(s => s.name);
   btn.classList.remove('spinning');
-  // 提示显示在刷新按钮附近
-  showToolbarToast(state.connected ? '已连接' : `连接失败: ${state.failReason || '服务不可用'}`);
+
+  if (allOk) {
+    if (text) text.textContent = `已连接 · ${elapsed}s`;
+    showToolbarToast(`✓ 全部就绪 · ${elapsed}s`);
+  } else {
+    if (text) text.textContent = `未连接 · ${failedNames.join('、')} 不可用`;
+    showToolbarToast(`✗ ${failedNames.join('、')} 无法连接`);
+  }
+
+  state._reconnecting = false;
 }
 
 // ============================================
