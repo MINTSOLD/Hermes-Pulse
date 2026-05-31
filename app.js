@@ -1799,7 +1799,8 @@ function sendMessage() {
         contentEl.innerHTML = text;
         // 有内容后隐藏思考指示器
         if (thinking && text.length > 0) thinking.style.display = 'none';
-        // 工具状态不再自动折叠，保持可见
+        // 处理文件路径链接
+        processFileLinks(contentEl);
       }
       // Bug 2: Estimate tokens during streaming (rough: 1 token ≈ 3 chars)
       const prevTokens = tabs[currentTabIndex]?.completedTokens || 0;
@@ -2040,6 +2041,34 @@ async function openFileByPath(filepath) {
   } catch (e) {
     alert('打开文件失败: ' + e.message);
   }
+}
+// 处理消息中的文件路径，使其可点击打开
+function processFileLinks(container) {
+  const textNodes = [];
+  const walk = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  while (walk.nextNode()) textNodes.push(walk.currentNode);
+
+  textNodes.forEach(node => {
+    const text = node.textContent;
+    if (!text.match(/\.(md|txt|markdown)/i)) return;
+    const parent = node.parentNode;
+    if (parent.tagName === 'A' || parent.classList?.contains('file-link') || parent.tagName === 'CODE') return;
+
+    // 匹配 file:// URL 和裸路径
+    const combined = text.replace(
+      /(?:file:\/\/\/|)([A-Za-z]:\/[^ \t<>"]+?\.(md|txt|markdown))/gi,
+      (match, filepath) => {
+        // 解码 URL 编码（%20 → 空格）
+        const decoded = filepath.replace(/%20/g, ' ');
+        return `<span class="file-link" onclick="openFileByPath('${decoded.replace(/'/g, "\\'")}')" title="点击查看: ${decoded}">${decoded}</span>`;
+      }
+    );
+    if (combined !== text) {
+      const span = document.createElement('span');
+      span.innerHTML = combined;
+      parent.replaceChild(span, node);
+    }
+  });
 }
 
 // 简易 Markdown → HTML 渲染器
