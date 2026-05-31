@@ -330,16 +330,8 @@ async function checkConnection() {
     dashboardOk = d.dashboard === true;
   } catch {}
 
-  // 如果 Gateway 掉线，自动触发一次修复（不阻塞 UI）
-  if (!gatewayOk && !state._autoRepairing) {
-    state._autoRepairing = true;
-    startGateway().then(recovered => {
-      state._autoRepairing = false;
-      if (recovered) {
-        checkConnection(); // 修复成功后重新检测
-      }
-    });
-  }
+  // Gateway 由 Scheduled Task 管理，不做自动修复
+  // 只报告状态
 
   state.connected = gatewayOk && platformsOk && dashboardOk;
   state.dashboardConnected = dashboardOk;
