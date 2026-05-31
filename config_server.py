@@ -230,6 +230,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # 静态文件服务 — GUI 资源 (同源，无 CORS 问题)
+        import time as _time
         GUI_DIR = Path(__file__).parent
         static_map = {
             "/": ("index.html", "text/html; charset=utf-8"),
@@ -245,7 +246,19 @@ class Handler(BaseHTTPRequestHandler):
             if fpath.exists():
                 self.send_response(200)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Cache-Control", "no-cache")
+                # 强制不缓存，每次都从磁盘读最新文件
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+                # 用文件修改时间作为 ETag，WebView2 必须重新验证
+                mtime = int(fpath.stat().st_mtime)
+                self.send_header("ETag", f'"{mtime}"')
+                # 如果客户端发来 If-None-Match 且一致，返回 304
+                if_none = self.headers.get("If-None-Match", "")
+                if if_none.strip('"') == str(mtime):
+                    self.send_response(304)
+                    self.end_headers()
+                    return
                 self._cors()
                 self.end_headers()
                 self.wfile.write(fpath.read_bytes())
