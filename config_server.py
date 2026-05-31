@@ -519,17 +519,8 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
                         # model 段没有 provider，插入
                         config = re.sub(r"(default:\s*['\"]?[^'\s\"']+)", rf"\g<1>\n  provider: {provider}", config)
                 config_path.write_text(config, encoding="utf-8")
-            # 重启 Gateway 让配置生效
-            import subprocess, time
-            try:
-                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
-                subprocess.Popen(
-                    [hermes_exe, "gateway", "start"],
-                    creationflags=0x08000000,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-            except Exception:
-                pass
+            # Gateway 由 Windows Scheduled Task 管理，不手动启动避免黑窗口
+            # 配置已写入，Gateway 会在下次轮询时自动加载
             self._json_response({"ok": True})
 
         elif self.path == "/set_env_key":
@@ -638,20 +629,10 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             self._json_response({"models": models})
 
         elif self.path == "/restart_gateway":
-            import subprocess
-            try:
-                hermes_exe = os.path.join(str(HERMES_DIR), "hermes-agent", "venv", "Scripts", "hermes.exe")
-                if not os.path.exists(hermes_exe):
-                    self._json_response({"ok": False, "error": "hermes.exe not found"})
-                else:
-                    subprocess.Popen(
-                        [hermes_exe, "gateway", "start"],
-                        creationflags=0x08000000,
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                    )
-                    self._json_response({"ok": True})
-            except Exception as e:
-                self._json_response({"ok": False, "error": str(e)})
+            # Gateway 由 Windows Scheduled Task 管理，不手动启动避免黑窗口
+            # 只检查状态，不触发启动
+            gw_alive = _gateway_alive()
+            self._json_response({"ok": True, "gateway_running": gw_alive})
 
         elif self.path == "/start_dashboard":
             import subprocess

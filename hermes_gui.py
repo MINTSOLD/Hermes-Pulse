@@ -290,7 +290,7 @@ def run_splash():
 
     start_time = time.time()
     step = 0
-    max_wait = 8.0
+    max_wait = 15.0  # 网关启动需要时间，给够 15 秒
 
     while time.time() - start_time < max_wait:
         elapsed = time.time() - start_time
@@ -304,15 +304,16 @@ def run_splash():
                 step = 2
             else:
                 _update_splash_text("等 待 配 置 服 务 ...")
-        elif step == 2 and elapsed >= 1.0:
+        elif step == 2 and elapsed >= 1.5:
             if _port_ok(8642):
                 _update_splash_text("AI 网 关 就 绪 ✓")
                 step = 3
             else:
-                _update_splash_text("等 待 AI 网 关 ...")
-        elif step == 3 and elapsed >= 1.5:
+                _update_splash_text("启 动 AI 网 关 ...")
+        elif step == 3 and elapsed >= 2.0:
             _update_splash_text("准 备 就 绪")
             step = 4
+            break  # 所有服务就绪，立即退出
 
         try:
             root.update()
@@ -320,13 +321,19 @@ def run_splash():
             break
         time.sleep(0.05)
 
-    # 最后确保显示"准备就绪"
-    if step < 4:
+    # 最终状态：根据实际端口检测结果准确显示
+    cfg_ok = _port_ok(18765)
+    gw_ok = _port_ok(8642)
+    if cfg_ok and gw_ok:
         _update_splash_text("准 备 就 绪")
-        try:
-            root.update()
-        except Exception:
-            pass
+    elif cfg_ok:
+        _update_splash_text("网 关 启 动 中 ...")
+    else:
+        _update_splash_text("准 备 就 绪")
+    try:
+        root.update()
+    except Exception:
+        pass
 
     logo_screen_y = y + logo_y
     try:
@@ -426,11 +433,11 @@ def ensure_config_server():
 
 
 def ensure_gateway():
+    """等待 Gateway 端口就绪（由 Windows Scheduled Task 管理，不手动启动避免黑窗口）"""
     if _port_alive(8642):
         return
-    # Gateway 由 Scheduled Task 管理，不主动启动，避免弹黑窗口
-    # 只记录日志，让用户知道 gateway 需要手动启动
-    print("[HermesGUI] Gateway 未运行，请通过 hermes gateway start 启动")
+    # Gateway 由 Windows Scheduled Task 管理，不手动启动
+    # 只等待端口就绪（最多 20 秒）
     for i in range(20):
         time.sleep(1)
         if _port_alive(8642):
