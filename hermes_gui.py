@@ -32,23 +32,39 @@ if _IS_WIN:
 URL = "http://127.0.0.1:18765/"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_TASKBAR = os.path.join(SCRIPT_DIR, "hermes.ico")
-ICON_TITLEBAR = os.path.join(SCRIPT_DIR, "hermes-titlebar.ico")
 LOGO_PNG = os.path.join(SCRIPT_DIR, "hermes-logo.png")
 CONFIG_SERVER = os.path.join(SCRIPT_DIR, "config_server.py")
 
 # ── Win32 constants (only used on Windows) ──
 if _IS_WIN:
-    WM_SETICON = 0x0080
-    GWL_EXSTYLE = -20
-    WS_EX_DLGMODALFRAME = 0x00000001
-    SWP_NOMOVE = 0x0002
-    SWP_NOSIZE = 0x0001
-    SWP_FRAMECHANGED = 0x0020
     DWMWA_CAPTION_COLOR = 35
+    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 
 window = None
 tray_icon = None
 _minimize_to_tray = False
+
+
+# ══════════════════════════════════════════
+#  Single-instance lock (Windows only)
+# ══════════════════════════════════════════
+_instance_mutex = None
+
+def _acquire_instance_lock():
+    """尝试获取单实例锁，防止重复启动"""
+    global _instance_mutex
+    if not _IS_WIN:
+        return True
+    try:
+        import ctypes as _ctypes_mod
+        kernel32 = _ctypes_mod.windll.kernel32
+        # CreateMutexW: 如果已存在则 GetLastError == ERROR_ALREADY_EXISTS (183)
+        _instance_mutex = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
+        if _ctypes_mod.windll.kernel32.GetLastError() == 183:
+            return False  # 已有实例在运行
+        return True
+    except Exception:
+        return True  # 获取锁失败也放行
 
 
 # ══════════════════════════════════════════
@@ -465,63 +481,26 @@ def ensure_gateway():
 
 
 # ══════════════════════════════════════════
-#  Win32 Window Styling (Windows only)
+#  Win32 Dark Title Bar (Windows only)
 # ══════════════════════════════════════════
 
-def _set_icon_on_hwnd(hwnd):
-    """Apply dark title bar + icons to the pywebview HWND (Windows only)."""
+def _apply_dark_titlebar(hwnd):
+    """设置深色标题栏（仅颜色，图标由 pywebview 原生处理）"""
     if not _IS_WIN:
         return
-    user32 = ctypes.windll.user32
     dwmapi = ctypes.windll.dwmapi
+    # 设置标题栏颜色为纯黑
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR,
             ctypes.byref(ctypes.c_int(0x000000)), 4)
     except Exception:
         pass
+    # 启用深色模式
     try:
-        dwmapi.DwmSetWindowAttribute(hwnd, 20,
+        dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
             ctypes.byref(ctypes.c_int(1)), 4)
     except Exception:
         pass
-    try:
-        style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        style |= WS_EX_DLGMODALFRAME
-        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-    except Exception:
-        pass
-    try:
-        if os.path.exists(ICON_TITLEBAR):
-            h = user32.LoadImageW(0, ICON_TITLEBAR, 1, 0, 0, 0x0010)
-            if h:
-                user32.SendMessageW(hwnd, WM_SETICON, 0, h)
-    except Exception:
-        pass
-    try:
-        if os.path.exists(ICON_TASKBAR):
-            h = user32.LoadImageW(0, ICON_TASKBAR, 1, 0, 0, 0x0010)
-            if h:
-                user32.SendMessageW(hwnd, WM_SETICON, 1, h)
-    except Exception:
-        pass
-    try:
-        user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | 0x0004 | SWP_FRAMECHANGED)
-    except Exception:
-        pass
-
-
-def _find_hwnd_by_title(title, retries=50, interval=0.1):
-    """Find a Win32 HWND by window title (Windows only)."""
-    if not _IS_WIN:
-        return None
-    user32 = ctypes.windll.user32
-    for _ in range(retries):
-        time.sleep(interval)
-        hwnd = user32.FindWindowW(None, title)
-        if hwnd:
-            return hwnd
-    return None
 
 
 # ══════════════════════════════════════════
@@ -582,6 +561,11 @@ if __name__ == '__main__':
             print("       Please run from a graphical session or set DISPLAY=:0")
             sys.exit(1)
 
+    # ── Single-instance lock (prevent duplicate windows) ──
+    if not _acquire_instance_lock():
+        # 已有实例在运行，直接退出
+        sys.exit(0)
+
     # Detect screen size
     sw, sh = 1920, 1080
     try:
@@ -610,16 +594,21 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # Windows: apply dark title bar + icons via Win32 API
+        # Windows: 通过 pywebview 拿 HWND 设置深色标题栏
+        # 图标由 pywebview.start(icon=...) 原生处理，不靠 FindWindowW
         if _IS_WIN:
-            hwnd = _find_hwnd_by_title('Hermes', retries=100, interval=0.1)
-            if hwnd:
-                _set_icon_on_hwnd(hwnd)
+            try:
+                hwnd = window.native.Handle.ToInt32()
+                _apply_dark_titlebar(hwnd)
+            except Exception:
+                pass
         if window:
             window.show()
         threading.Thread(target=start_tray, daemon=True).start()
 
     threading.Thread(target=show_main, daemon=True).start()
 
-    webview.start(debug=False)
+    # 用 pywebview 原生 icon 参数设置图标（标题栏+任务栏都正确）
+    _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
+    webview.start(debug=False, icon=_icon_arg)
     os._exit(0)
