@@ -234,10 +234,13 @@ body {
   font-size: 12px; color: rgba(255,255,255,0.2);
   letter-spacing: 3px;
   display: inline-block;
+  width: auto;
   padding: 6px 20px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
 }
 
 .tip-card {
