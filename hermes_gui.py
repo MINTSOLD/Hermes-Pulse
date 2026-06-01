@@ -140,30 +140,24 @@ def _port_alive(port, timeout=1):
 # ══════════════════════════════════════════
 
 def _splash_html():
-    """Inline splash HTML — brand display, no tkinter."""
-    import base64
-    logo_data = b""
-    if os.path.exists(LOGO_PNG):
-        try:
-            with open(LOGO_PNG, "rb") as f:
-                logo_data = base64.b64encode(f.read()).decode()
-        except: pass
-    logo_tag = f'<img src="data:image/png;base64,{logo_data}" style="width:140px;height:140px;filter:drop-shadow(0 0 30px rgba(212,175,55,0.4));animation:pulse 2s ease-in-out infinite;">' if logo_data else ""
-    return f"""<!DOCTYPE html>
+    """Inline splash HTML — brand display, no tkinter, no huge base64."""
+    return """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
-.wrap{{text-align:center;animation:fadeIn 0.5s ease}}
-.logo{{margin-bottom:16px}}
-.title{{color:#fff;font-size:28px;font-weight:300;letter-spacing:6px;margin-bottom:8px}}
-.sub{{color:#888;font-size:12px;letter-spacing:3px}}
-@keyframes pulse{{0%,100%{{transform:scale(1)}}50%{{transform:scale(1.05)}}}}
-@keyframes fadeIn{{from{{opacity:0;transform:translateY(10px)}}to{{opacity:1;transform:translateY(0)}}}}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{text-align:center;animation:fadeIn 0.5s ease}
+.icon{width:64px;height:64px;margin:0 auto 20px;border:2px solid #d4af37;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:pulse 2s ease-in-out infinite}
+.icon svg{width:32px;height:32px;stroke:#d4af37;fill:none;stroke-width:1.5}
+.title{color:#fff;font-size:28px;font-weight:300;letter-spacing:6px;margin-bottom:8px}
+.sub{color:#666;font-size:12px;letter-spacing:3px}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,175,55,0.3)}50%{transform:scale(1.05);box-shadow:0 0 20px 5px rgba(212,175,55,0.15)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 </style></head><body>
-<div class="wrap"><div class="logo">{logo_tag}</div>
+<div class="wrap">
+<div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
 <div class="title">HERMES</div>
-<div class="sub">轻于形 · 智于心</div></div>
-</body></html>"""
+<div class="sub">轻于形 · 智于心</div>
+</div></body></html>"""
 
 
 # ══════════════════════════════════════════
