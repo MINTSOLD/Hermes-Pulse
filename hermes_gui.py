@@ -594,8 +594,6 @@ if __name__ == '__main__':
     win_y = (sh - win_h) // 2
 
     # WebView2 初始化（主线程阻塞）
-    _t1 = time.time()
-    print(f'[TIMER] before create_window: {(time.time()-_t0)*1000:.0f}ms', flush=True)
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -610,8 +608,6 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        _t2 = time.time()
-        print(f'[TIMER] window.show: {(time.time()-_t0)*1000:.0f}ms', flush=True)
         if window:
             window.show()
         if _IS_WIN:
