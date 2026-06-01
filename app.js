@@ -28,12 +28,20 @@ let profiles = [];  // 从 config_server 加载
 let currentProfile = 'default';
 
 const PROFILE_ICONS = {
-  default: '🏠', coding: '💻', writing: '✍️', research: '🔍',
-  creative: '🎨', business: '💼', learning: '📚', custom: '⭐',
+  default: '主', coding: '码', writing: '文', research: '研',
+  creative: '创', business: '商', learning: '学', custom: '自',
+};
+const PROFILE_LABELS = {
+  default: '默认助手', coding: '编程专家', writing: '写作助手',
+  research: '研究员', creative: '创意师', business: '商务顾问',
+  learning: '学习导师', custom: '自定义',
 };
 
 function getProfileIcon(name) {
-  return PROFILE_ICONS[name] || '🤖';
+  return PROFILE_ICONS[name] || 'A';
+}
+function getProfileLabel(name) {
+  return PROFILE_LABELS[name] || name;
 }
 
 async function loadProfiles() {
@@ -51,7 +59,7 @@ async function loadProfiles() {
 function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
-  el.querySelector('.agent-name').textContent = currentProfile;
+  el.querySelector('.agent-name').textContent = getProfileLabel(currentProfile);
   el.querySelector('.agent-icon').textContent = getProfileIcon(currentProfile);
 }
 
@@ -81,8 +89,8 @@ function renderAgentDropdown() {
     const active = p.name === currentProfile ? ' active' : '';
     html += `<div class="agent-item${active}" onclick="switchProfile('${p.name}')">
       <span class="agent-item-icon">${getProfileIcon(p.name)}</span>
-      <div class="agent-item-info"><div class="agent-item-name">${p.name}</div>
-      <div class="agent-item-desc">${p.name === 'default' ? '默认空间' : '独立空间'}</div></div></div>`;
+      <div class="agent-item-info"><div class="agent-item-name">${getProfileLabel(p.name)}</div>
+      <div class="agent-item-desc">${p.name === 'default' ? '默认空间' : '独立空间 · ' + p.name}</div></div></div>`;
   });
 
   html += '<div class="agent-divider"></div>';
@@ -1404,7 +1412,7 @@ function renderTabBar() {
     div.dataset.index = i;
     div.onclick = () => switchTab(i);
     const agentName = currentProfile;
-    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getProfileIcon(agentName)} ${agentName}</span>`;
+    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getProfileIcon(currentProfile)} ${getProfileLabel(currentProfile)}</span>`;
     if (tabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
