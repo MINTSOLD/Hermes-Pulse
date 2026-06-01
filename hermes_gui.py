@@ -42,15 +42,73 @@ _minimize_to_tray = False
 
 
 def _acquire_instance_lock():
+    """Single-instance lock with stale-process recovery.
+
+    Uses a Windows Mutex.  If the mutex already exists (ERROR_ALREADY_EXISTS =
+    183), we check whether the owning process is still alive by scanning for a
+    matching python/pythonw process whose PID matches our stored PID file.
+    If the owner is dead, we clean up and re-acquire.
+    """
     if not _IS_WIN:
         return True
     try:
         kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+
+        # PID file used to verify the mutex owner
+        pid_file = os.path.join(SCRIPT_DIR, ".hermes_gui.pid")
+
         h = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
-        if kernel32.GetLastError() == 183:
-            return False
+        err = kernel32.GetLastError()
+        if err == 183:
+            # Mutex already held — check if the owner is still alive
+            alive = False
+            my_pid = os.getpid()
+            try:
+                if os.path.exists(pid_file):
+                    with open(pid_file, "r") as f:
+                        old_pid = int(f.read().strip())
+                    if old_pid == my_pid:
+                        alive = True  # same process, we already hold it
+                    else:
+                        # Check if process is still running via OpenProcess
+                        PROCESS_QUERY_LIMITED = 0x1000
+                        ph = kernel32.OpenProcess(PROCESS_QUERY_LIMITED, False, old_pid)
+                        if ph:
+                            kernel32.CloseHandle(ph)
+                            alive = True
+            except Exception:
+                pass
+
+            if not alive:
+                # Stale lock — force-release and re-acquire
+                try:
+                    kernel32.CloseHandle(h)
+                except Exception:
+                    pass
+                # Small wait for the kernel to clean up
+                time.sleep(0.3)
+                h = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
+                if kernel32.GetLastError() == 183:
+                    return False
+                # Write our PID
+                try:
+                    with open(pid_file, "w") as f:
+                        f.write(str(os.getpid()))
+                except Exception:
+                    pass
+                return True
+            else:
+                return False
+
+        # Fresh lock acquired — write our PID
+        try:
+            with open(pid_file, "w") as f:
+                f.write(str(os.getpid()))
+        except Exception:
+            pass
         return True
-    except:
+    except Exception:
         return True
 
 
