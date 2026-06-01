@@ -66,13 +66,8 @@ function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
   const iconEl = el.querySelector('.agent-icon');
+  if (iconEl) iconEl.innerHTML = PROFILE_SVG[currentProfile] || `<span class="agent-icon-text">${(currentProfile||'A')[0]}</span>`;
   const nameEl = el.querySelector('.agent-name');
-  if (iconEl) {
-    const tmp = document.createElement('span');
-    tmp.innerHTML = getProfileIcon(currentProfile);
-    iconEl.replaceWith(tmp);
-    tmp.className = 'agent-icon';
-  }
   if (nameEl) nameEl.textContent = getProfileLabel(currentProfile);
 }
 

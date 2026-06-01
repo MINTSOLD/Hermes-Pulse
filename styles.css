@@ -103,10 +103,10 @@ body {
 .agent-selector:hover { background: var(--bg-hover); color: var(--text-primary); }
 .agent-icon {
   width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  flex-shrink: 0; overflow: hidden;
 }
-.agent-icon-svg { width: 16px; height: 16px; color: var(--text-muted); }
-.agent-icon-svg svg { width: 100%; height: 100%; }
+.agent-icon-svg { width: 16px; height: 16px; color: var(--text-muted); display: flex; }
+.agent-icon-svg svg { width: 16px; height: 16px; flex-shrink: 0; }
 .agent-icon-text {
   font-size: 11px; font-weight: 600;
   width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
