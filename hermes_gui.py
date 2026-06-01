@@ -607,6 +607,16 @@ if __name__ == '__main__':
 
     def show_main():
         global window
+        # 等页面加载完再显示窗口（splash 期间 WebView2 已在后台加载）
+        for _ in range(30):  # 最多等 3 秒
+            try:
+                if window.native and window.native.Handle:
+                    break
+            except:
+                pass
+            time.sleep(0.1)
+        # 额外等 1.5 秒让页面渲染
+        time.sleep(1.5)
         if window:
             window.show()
         if _IS_WIN:
