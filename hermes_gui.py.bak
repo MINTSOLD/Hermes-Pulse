@@ -530,10 +530,8 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # 启动 splash（服务检测 + 淡出）
-    _t0 = time.time()
+    # Show the transparent logo splash
     splash_cx, logo_screen_y = run_splash()
-    print(f'[TIMER] splash done: {(time.time()-_t0)*1000:.0f}ms', flush=True)
 
     # ── WSL 2 fallback: start services, print URL, exit ──
     if _IS_WSL:
@@ -597,8 +595,6 @@ if __name__ == '__main__':
     win_y = (sh - win_h) // 2
 
     # WebView2 初始化（主线程阻塞）
-    _t1 = time.time()
-    print(f'[TIMER] before create_window: {(time.time()-_t0)*1000:.0f}ms', flush=True)
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -613,8 +609,6 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        _t2 = time.time()
-        print(f'[TIMER] window.show: {(time.time()-_t0)*1000:.0f}ms', flush=True)
         if window:
             window.show()
         if _IS_WIN:
