@@ -174,8 +174,8 @@ import tkinter as tk
 
 def run_splash(poll_fn=None):
     """
-    Transparent splash: logo + percentage loading bar.
-    If poll_fn is provided, waits until poll_fn() returns True before showing 100%.
+    Transparent splash: logo + loading text.
+    Checks config_server (18765) and gateway (8642) readiness.
     """
     BG = "#010101"
     LOGO_SIZE = 280
@@ -291,7 +291,7 @@ def run_splash(poll_fn=None):
 
     root.update()
 
-    # 真实检测服务状态 + 百分比加载
+    # 检测服务状态
     import socket as _sock
     def _port_ok(port, timeout=1):
         s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
@@ -304,52 +304,25 @@ def run_splash(poll_fn=None):
             return False
 
     start_time = time.time()
-    max_wait = 15.0
     cfg_ok = False
     gw_ok = False
-    wv_ok = False
 
-    while time.time() - start_time < max_wait:
+    # 等待服务就绪，最多 8 秒
+    while time.time() - start_time < 8.0:
         elapsed = time.time() - start_time
-
-        # 检查服务状态
         if not cfg_ok:
             cfg_ok = _port_ok(18765)
         if not gw_ok:
             gw_ok = _port_ok(8642)
-        # 检查 WebView2 是否就绪
-        if poll_fn and not wv_ok:
-            try:
-                wv_ok = poll_fn()
-            except:
-                pass
 
-        # 计算百分比：服务 70% + WebView2 30%
-        svc_pct = 0
         if cfg_ok and gw_ok:
-            svc_pct = 70
-        elif cfg_ok:
-            svc_pct = 50
-        elif elapsed > 0.5:
-            svc_pct = 20
-
-        wv_pct = 30 if wv_ok else int(min(elapsed / 3.0, 1.0) * 25)  # 最多到 25%
-        pct = svc_pct + wv_pct
-
-        # 显示百分比文字
-        if wv_ok and cfg_ok:
-            _update_splash_text(f"{pct}%  准 备 就 绪 ✓")
-        elif cfg_ok and gw_ok:
-            _update_splash_text(f"{pct}%  界 面 加 载 中 ...")
-        elif cfg_ok:
-            _update_splash_text(f"{pct}%  网 关 就 绪 ✓")
-        else:
-            _update_splash_text(f"{pct}%  正 在 启 动 ...")
-
-        # WebView2 就绪 + 服务就绪 = 可以关了
-        if wv_ok and cfg_ok:
-            time.sleep(0.2)  # 让最后一帧显示
+            _update_splash_text("准 备 就 绪 ✓")
+            time.sleep(0.3)
             break
+        elif cfg_ok:
+            _update_splash_text("网 关 就 绪 ✓")
+        elif elapsed > 0.5:
+            _update_splash_text("正 在 启 动 ...")
 
         try:
             root.update()
@@ -357,13 +330,13 @@ def run_splash(poll_fn=None):
             break
         time.sleep(0.05)
 
-    # 强制 100% 后关闭
-    _update_splash_text("100%  准 备 就 绪 ✓")
+    # 确保显示最终状态
+    _update_splash_text("准 备 就 绪 ✓")
     try:
         root.update()
     except Exception:
         pass
-    time.sleep(0.15)
+    time.sleep(0.2)
     try:
         root.update()
     except Exception:
@@ -611,8 +584,9 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # 先创建 webview 窗口（hidden），然后后台线程启动 WebView2 引擎
-    # 同时主线程跑 splash，splash 轮询 window.native 判断 WebView2 是否就绪
+    # 主线程：splash（服务检测）→ 创建窗口 → 显示
+    run_splash()
+
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -625,42 +599,26 @@ if __name__ == '__main__':
     w.events.closing += on_window_close
     _minimize_to_tray = True
 
-    # 后台线程启动 WebView2 事件循环
+    def show_main():
+        global window
+        if window:
+            window.show()
+        if _IS_WIN:
+            def _apply_later():
+                for _ in range(50):
+                    try:
+                        if window.native and window.native.Handle:
+                            hwnd = window.native.Handle.ToInt32()
+                            _apply_dark_titlebar(hwnd)
+                            return
+                    except Exception:
+                        pass
+                    time.sleep(0.1)
+            threading.Thread(target=_apply_later, daemon=True).start()
+        threading.Thread(target=start_tray, daemon=True).start()
+
+    threading.Thread(target=show_main, daemon=True).start()
+
     _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
-    _webview_ready = threading.Event()
-    def _start_webview():
-        webview.start(debug=False, icon=_icon_arg)
-    _wv_thread = threading.Thread(target=_start_webview, daemon=True)
-    _wv_thread.start()
-
-    # splash 轮询 window.native 判断就绪
-    def _is_webview_ready():
-        try:
-            return window.native and window.native.Handle
-        except:
-            return False
-
-    run_splash(poll_fn=_is_webview_ready)
-
-    # splash 结束时 WebView2 已就绪，立刻显示窗口
-    if window:
-        window.show()
-    # 后台设置深色标题栏
-    if _IS_WIN:
-        def _apply_later():
-            for _ in range(50):
-                try:
-                    if window.native and window.native.Handle:
-                        hwnd = window.native.Handle.ToInt32()
-                        _apply_dark_titlebar(hwnd)
-                        return
-                except Exception:
-                    pass
-                time.sleep(0.1)
-        threading.Thread(target=_apply_later, daemon=True).start()
-    threading.Thread(target=start_tray, daemon=True).start()
-
-    # webview.start() 在后台线程运行事件循环，阻塞直到窗口关闭
-    _wv_thread.join()
-    os._exit(0)
+    webview.start(debug=False, icon=_icon_arg)
     os._exit(0)
