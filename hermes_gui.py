@@ -594,9 +594,7 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # 主线程：splash → 创建窗口 → 显示
-    run_splash()
-
+    # 直接创建窗口，不用 splash（splash 结束后 WebView2 还要初始化，必然有空白间隔）
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -630,7 +628,6 @@ if __name__ == '__main__':
 
     threading.Thread(target=show_main, daemon=True).start()
 
-    # 用 pywebview 原生 icon 参数设置图标
     _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
     webview.start(debug=False, icon=_icon_arg)
     os._exit(0)
