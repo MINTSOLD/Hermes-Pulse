@@ -303,6 +303,27 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 data = {"sessions": []}
             self._json_response(data)
+        elif self.path == "/personalities":
+            # 获取 personalities 列表
+            try:
+                config_path = HERMES_DIR / "config.yaml"
+                if config_path.exists():
+                    import yaml
+                    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+                else:
+                    config = {}
+                raw = config.get("agent", {}).get("personalities", {})
+                # 格式化为前端需要的格式
+                result = []
+                for name, value in raw.items():
+                    if isinstance(value, dict):
+                        desc = value.get("description", value.get("system_prompt", "")[:80])
+                    else:
+                        desc = str(value)[:80]
+                    result.append({"name": name, "description": desc})
+                self._json_response({"personalities": result})
+            except Exception as e:
+                self._json_response({"personalities": [], "error": str(e)})
         elif self.path.startswith("/gateway/"):
             # 代理 Gateway 请求（转发 Authorization 头）
             real_path = self.path[len("/gateway"):]
@@ -470,6 +491,34 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             sessions_file.parent.mkdir(parents=True, exist_ok=True)
             try:
                 sessions_file.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
+            return
+        elif self.path == "/save_personality":
+            # 保存自定义 personality 到 config.yaml
+            name = body.get("name", "").strip()
+            prompt = body.get("prompt", "").strip()
+            action = body.get("action", "save")  # save / delete
+            if not name:
+                self._json_response({"ok": False, "error": "name required"})
+                return
+            try:
+                config_path = HERMES_DIR / "config.yaml"
+                import yaml
+                if config_path.exists():
+                    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+                else:
+                    config = {}
+                if "agent" not in config:
+                    config["agent"] = {}
+                if "personalities" not in config["agent"]:
+                    config["agent"]["personalities"] = {}
+                if action == "delete":
+                    config["agent"]["personalities"].pop(name, None)
+                else:
+                    config["agent"]["personalities"][name] = prompt
+                config_path.write_text(yaml.dump(config, allow_unicode=True, default_flow_style=False), encoding="utf-8")
                 self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})

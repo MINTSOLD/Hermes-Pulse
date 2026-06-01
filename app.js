@@ -15,11 +15,143 @@ const state = {
 };
 
 // Tab management
-let tabs = [{ id: 'tab-0', name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
+let tabs = [{ id: 'tab-0', name: '新对话', personality: 'helpful', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) }];
 let currentTabIndex = 0;
 let _tabsLoaded = false;
 
 function currentTab() { return tabs[currentTabIndex]; }
+
+// ============================================
+// Agent / Personality 管理
+// ============================================
+let personalities = [];  // 从 config_server 加载
+const PERSONALITY_ICONS = {
+  helpful: '😊', concise: '✂️', technical: '🔧', creative: '🎨',
+  teacher: '📚', kawaii: '🌸', catgirl: '🐱', pirate: '🏴‍☠️',
+  shakespeare: '🎭', surfer: '🏄', noir: '🕵️', uwu: '💜',
+  philosopher: '🤔', hype: '🔥',
+};
+
+function getPersonalityIcon(name) {
+  return PERSONALITY_ICONS[name] || '🤖';
+}
+
+async function loadPersonalities() {
+  try {
+    const r = await fetch(`${CONFIG_SERVER}/personalities`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const data = await r.json();
+      personalities = data.personalities || [];
+    }
+  } catch {}
+  updateAgentSelector();
+}
+
+function updateAgentSelector() {
+  const el = document.getElementById('current-agent');
+  if (!el) return;
+  const tab = currentTab();
+  const name = tab.personality || 'helpful';
+  el.querySelector('.agent-name').textContent = name;
+  el.querySelector('.agent-icon').textContent = getPersonalityIcon(name);
+}
+
+function toggleAgentDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('agent-dropdown');
+  if (!dd) return;
+  if (dd.classList.contains('hidden')) {
+    renderAgentDropdown();
+    dd.classList.remove('hidden');
+    setTimeout(() => document.addEventListener('click', closeAgentDropdown, { once: true }), 10);
+  } else {
+    dd.classList.add('hidden');
+  }
+}
+
+function closeAgentDropdown() {
+  document.getElementById('agent-dropdown')?.classList.add('hidden');
+}
+
+function renderAgentDropdown() {
+  const dd = document.getElementById('agent-dropdown');
+  if (!dd) return;
+  const tab = currentTab();
+  const current = tab.personality || 'helpful';
+
+  // 分区：预设 + 趣味
+  const presetNames = ['helpful', 'concise', 'technical', 'creative', 'teacher'];
+  const funNames = ['kawaii', 'catgirl', 'pirate', 'shakespeare', 'surfer', 'noir', 'uwu', 'philosopher', 'hype'];
+  const customNames = personalities.filter(p => !presetNames.includes(p.name) && !funNames.includes(p.name));
+
+  let html = '';
+
+  // 预设
+  html += '<div class="agent-section-title">系统预设</div>';
+  presetNames.forEach(name => {
+    const p = personalities.find(x => x.name === name);
+    const desc = p ? p.description : '';
+    const active = name === current ? ' active' : '';
+    html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
+      <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
+      <div class="agent-item-info"><div class="agent-item-name">${name}</div>
+      <div class="agent-item-desc">${desc}</div></div></div>`;
+  });
+
+  // 趣味
+  html += '<div class="agent-divider"></div><div class="agent-section-title">趣味人格</div>';
+  funNames.forEach(name => {
+    const p = personalities.find(x => x.name === name);
+    const desc = p ? p.description : '';
+    const active = name === current ? ' active' : '';
+    html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
+      <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
+      <div class="agent-item-info"><div class="agent-item-name">${name}</div>
+      <div class="agent-item-desc">${desc}</div></div></div>`;
+  });
+
+  // 自定义
+  if (customNames.length > 0) {
+    html += '<div class="agent-divider"></div><div class="agent-section-title">自定义</div>';
+    customNames.forEach(p => {
+      const active = p.name === current ? ' active' : '';
+      html += `<div class="agent-item${active}" onclick="selectAgent('${p.name}')">
+        <span class="agent-item-icon">⭐</span>
+        <div class="agent-item-info"><div class="agent-item-name">${p.name}</div>
+        <div class="agent-item-desc">${p.description}</div></div></div>`;
+    });
+  }
+
+  // 操作区
+  html += '<div class="agent-divider"></div>';
+  html += '<div class="agent-action" onclick="showCreateAgentModal()">➕ 新建自定义 Agent</div>';
+
+  dd.innerHTML = html;
+}
+
+function selectAgent(name) {
+  const tab = currentTab();
+  tab.personality = name;
+  updateAgentSelector();
+  renderTabBar();
+  saveTabs();
+  closeAgentDropdown();
+}
+
+function showCreateAgentModal() {
+  closeAgentDropdown();
+  // 简单 prompt 弹窗
+  const name = prompt('Agent 名称（英文，如 mybot）：');
+  if (!name) return;
+  const prompt_text = prompt('System Prompt（描述这个 Agent 的行为）：');
+  if (!prompt_text) return;
+
+  fetch(`${CONFIG_SERVER}/save_personality`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim(), prompt: prompt_text.trim() }),
+  }).then(() => loadPersonalities());
+}
 
 // 启动时从磁盘恢复会话
 loadSavedTabs().then(saved => {
@@ -142,6 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadRealConfig();
   loadModels();
   loadSessions();
+  loadPersonalities();
   await manualReconnect();
   // 每30秒自动检查连接状态
   setInterval(checkConnection, 30000);
@@ -1199,7 +1332,7 @@ function newChat() {
 
   // Create a new tab
   const newId = 'tab-' + Date.now();
-  const newTab = { id: newId, name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) };
+  const newTab = { id: newId, name: '新对话', personality: currentTab().personality || 'helpful', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) };
   tabs.push(newTab);
   currentTabIndex = tabs.length - 1;
   saveTabs();
@@ -1274,14 +1407,14 @@ function closeTab(index) {
 function renderTabBar() {
   const bar = document.getElementById('toolbar-tabs');
   if (!bar) return;
-  const btn = document.getElementById('btn-new-tab');
   bar.innerHTML = '';
   tabs.forEach((tab, i) => {
     const div = document.createElement('div');
     div.className = 'tab' + (i === currentTabIndex ? ' active' : '');
     div.dataset.index = i;
     div.onclick = () => switchTab(i);
-    div.innerHTML = `<span class="tab-name">${tab.name}</span>`;
+    const agentName = tab.personality || 'helpful';
+    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getPersonalityIcon(agentName)} ${agentName}</span>`;
     if (tabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
@@ -1291,6 +1424,7 @@ function renderTabBar() {
     }
     bar.appendChild(div);
   });
+  updateAgentSelector();
   updateHistoryDropdown();
 }
 
@@ -1779,6 +1913,7 @@ function sendMessage() {
     headers: {
       'Content-Type': 'application/json',
       'X-Hermes-Session-Id': currentTab().sessionId || state.sessionId,
+      'X-Hermes-Personality': currentTab().personality || 'helpful',
       ...(state.gatewayApiKey ? { 'Authorization': `Bearer ${state.gatewayApiKey}` } : {}),
     },
     body: JSON.stringify({
