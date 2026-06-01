@@ -51,20 +51,18 @@ _minimize_to_tray = False
 _instance_mutex = None
 
 def _acquire_instance_lock():
-    """尝试获取单实例锁，防止重复启动"""
     global _instance_mutex
     if not _IS_WIN:
         return True
     try:
         import ctypes as _ctypes_mod
         kernel32 = _ctypes_mod.windll.kernel32
-        # CreateMutexW: 如果已存在则 GetLastError == ERROR_ALREADY_EXISTS (183)
         _instance_mutex = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
         if _ctypes_mod.windll.kernel32.GetLastError() == 183:
-            return False  # 已有实例在运行
+            return False
         return True
     except Exception:
-        return True  # 获取锁失败也放行
+        return True
 
 
 # ══════════════════════════════════════════
@@ -72,47 +70,37 @@ def _acquire_instance_lock():
 # ══════════════════════════════════════════
 
 def _get_python_command():
-    """Return the Python command to use for spawning config_server."""
     if _IS_WIN:
-        # Look for pythonw.exe in common locations
         candidates = [
             r"C:\Program Files\Python311\pythonw.exe",
             os.path.join(sys.prefix, "pythonw.exe"),
         ]
-        # Also try the same directory as the running python
         py_dir = os.path.dirname(sys.executable)
         candidates.insert(0, os.path.join(py_dir, "pythonw.exe"))
         for p in candidates:
             if os.path.isfile(p):
                 return p
-        # Fallback: use sys.executable (will show console window)
         return sys.executable
     else:
-        # macOS / Linux: use the running Python interpreter
         return sys.executable
 
 
 def _find_hermes_command():
-    """Return the hermes command/path to use for launching gateway."""
     if _IS_WIN:
-        # Check the known venv location first
         hermes_exe = os.path.join(
             str(Path.home()), "AppData", "Local", "hermes", "hermes-agent",
             "venv", "Scripts", "hermes.exe"
         )
         if os.path.exists(hermes_exe):
             return hermes_exe
-        # Check if 'hermes' is on PATH
         hermes_which = _which("hermes.exe") or _which("hermes")
         if hermes_which:
             return hermes_which
         return None
     else:
-        # macOS / Linux: look for 'hermes' in PATH
         hermes_path = _which("hermes")
         if hermes_path:
             return hermes_path
-        # macOS venv pattern
         if _IS_MAC:
             venv_hermes = os.path.join(
                 str(Path.home()), ".local", "hermes", "hermes-agent",
@@ -120,7 +108,6 @@ def _find_hermes_command():
             )
             if os.path.isfile(venv_hermes):
                 return venv_hermes
-        # Linux venv pattern
         if _IS_LINUX:
             venv_hermes = os.path.join(
                 str(Path.home()), ".local", "hermes", "hermes-agent",
@@ -132,20 +119,17 @@ def _find_hermes_command():
 
 
 def _which(cmd):
-    """Simple shutil.which replacement."""
     import shutil
     return shutil.which(cmd)
 
 
 def _get_creationflags():
-    """Return creationflags for subprocess on Windows (DETACHED_PROCESS), else 0."""
     if _IS_WIN:
-        return 0x08000000  # CREATE_NO_WINDOW / DETACHED
+        return 0x08000000
     return 0
 
 
 def _open_url_in_browser(url):
-    """Open a URL in the default browser (used by WSL fallback)."""
     import webbrowser
     webbrowser.open(url)
 
@@ -167,16 +151,12 @@ def _port_alive(port, timeout=1):
 
 
 # ══════════════════════════════════════════
-#  Transparent Logo Splash Screen
+#  Transparent Logo Splash Screen (tkinter)
 # ══════════════════════════════════════════
 import tkinter as tk
 
 
-def run_splash(poll_fn=None):
-    """
-    Transparent splash: logo + loading text.
-    Checks config_server (18765) and gateway (8642) readiness.
-    """
+def run_splash():
     BG = "#010101"
     LOGO_SIZE = 280
 
@@ -185,28 +165,20 @@ def run_splash(poll_fn=None):
     root.attributes("-topmost", True)
     root.configure(bg=BG)
 
-    # Platform-specific transparency
     if _IS_WIN:
-        # Windows: transparentcolor makes the BG color invisible
         root.attributes("-transparentcolor", BG)
     elif _IS_MAC:
-        # macOS: can't do color-key transparency; use alpha for a dark themed splash
-        # This makes the whole window slightly transparent — still looks good
         try:
             root.attributes("-alpha", 0.95)
         except Exception:
             pass
     elif _IS_LINUX:
-        # Linux/X11: try transparentcolor (works on some WMs), fall back to solid BG
         try:
             root.attributes("-transparentcolor", BG)
         except Exception:
             pass
-    # WSL: same as Linux
 
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-
-    # Window size: Logo(280) + gap(20) + text area(50) = 350
     W, H = 340, 360
     x = (sw - W) // 2
     y = (sh - H) // 2
@@ -215,7 +187,6 @@ def run_splash(poll_fn=None):
     canvas = tk.Canvas(root, width=W, height=H, bg=BG, highlightthickness=0)
     canvas.pack()
 
-    # Logo centered upper area
     logo_y = H // 2 - 25
     logo_tk = None
     if os.path.exists(LOGO_PNG):
@@ -228,24 +199,19 @@ def run_splash(poll_fn=None):
         except Exception:
             pass
 
-    # Semi-transparent dark bg + white status text — 动态大小圆角矩形
     text_bg_y = logo_y + LOGO_SIZE // 2 + 22
 
     def _draw_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
-        """画胶囊形（两端半圆）"""
         import math
         points = []
-        # 右半圆
         cy = (y1 + y2) / 2
         rx = (x2 - x1) / 2
         ry = (y2 - y1) / 2
         cx = (x1 + x2) / 2
-        # 右半圆 (0 to 180)
         for deg in range(-90, 91, 5):
             rad = math.radians(deg)
             points.append(cx + rx + ry * math.cos(rad))
             points.append(cy + ry * math.sin(rad))
-        # 左半圆 (180 to 360)
         for deg in range(90, 271, 5):
             rad = math.radians(deg)
             points.append(cx - rx + ry * math.cos(rad))
@@ -256,7 +222,6 @@ def run_splash(poll_fn=None):
     if _IS_WIN:
         _splash_font = ("Microsoft YaHei", 10)
 
-    # 先创建文字，测量宽度后再画背景
     status_id = canvas.create_text(
         W // 2, text_bg_y,
         text="正 在 启 动 ...",
@@ -265,11 +230,9 @@ def run_splash(poll_fn=None):
     root.update()
 
     def _update_splash_text(text):
-        """更新文字并动态调整背景大小"""
         nonlocal text_bg_y
         canvas.itemconfig(status_id, text=text)
         root.update()
-        # 测量文字实际宽度
         bbox = canvas.bbox(status_id)
         if bbox:
             tw = bbox[2] - bbox[0]
@@ -279,19 +242,15 @@ def run_splash(poll_fn=None):
             ry1 = text_bg_y - th // 2 - pad_y
             rx2 = W // 2 + tw // 2 + pad_x
             ry2 = text_bg_y + th // 2 + pad_y
-            # 胶囊形：圆角半径 = 高度的一半
             corner_r = (ry2 - ry1) // 2
-            # 删除旧背景
             canvas.delete("splash_bg")
             _draw_rounded_rect(canvas, rx1, ry1, rx2, ry2, corner_r,
                                fill="#333333", outline="", stipple="gray50",
                                tags="splash_bg")
-            # 把背景移到文字下面
             canvas.tag_lower("splash_bg", status_id)
 
     root.update()
 
-    # 检测服务状态
     import socket as _sock
     def _port_ok(port, timeout=1):
         s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
@@ -307,7 +266,7 @@ def run_splash(poll_fn=None):
     cfg_ok = False
     gw_ok = False
 
-    # 第一阶段：等待服务就绪（最多 8 秒）
+    # 等待服务就绪（最多 8 秒）
     while time.time() - start_time < 8.0:
         elapsed = time.time() - start_time
         if not cfg_ok:
@@ -329,18 +288,7 @@ def run_splash(poll_fn=None):
             break
         time.sleep(0.05)
 
-    # 第二阶段：服务就绪后，等界面加载（4 秒）
-    # 这段时间 WebView2 在后台预热，splash 保持可见覆盖空白间隔
-    if cfg_ok:
-        for i in range(40):
-            _update_splash_text(f"界 面 加 载 中 ...")
-            try:
-                root.update()
-            except Exception:
-                break
-            time.sleep(0.1)
-
-    # 淡出特效：0.4秒内从不透明渐变到透明
+    # 淡出特效
     try:
         for i in range(8):
             alpha = 1.0 - (i + 1) / 8.0
@@ -350,13 +298,10 @@ def run_splash(poll_fn=None):
     except Exception:
         pass
 
-    logo_screen_y = y + logo_y
     try:
         root.destroy()
     except Exception:
         pass
-
-    return sw // 2, logo_screen_y
 
 
 # ══════════════════════════════════════════
@@ -399,8 +344,6 @@ def _focus_window():
                 user32.ShowWindow(hwnd, 9)
         except Exception:
             pass
-    # macOS/Linux: pystray + pywebview handle focus natively
-    # No extra action needed.
 
 
 def start_tray():
@@ -436,8 +379,8 @@ def ensure_config_server():
         subprocess.Popen(
             [python_cmd, CONFIG_SERVER],
             creationflags=_get_creationflags(),
-            stdout=subprocess.DEVNULL if not _IS_WIN else subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL if not _IS_WIN else subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
     except Exception:
         pass
@@ -448,15 +391,12 @@ def ensure_config_server():
 
 
 def ensure_gateway():
-    """确保 Gateway 运行，如未运行则通过 pythonw.exe 静默启动"""
     if _port_alive(8642):
         return
-    # 先等 5 秒，让 Scheduled Task 有机会启动
     for i in range(5):
         time.sleep(1)
         if _port_alive(8642):
             return
-    # 还没运行？用 pythonw.exe 静默启动（绝对不弹黑窗口）
     if _IS_WIN:
         hermes_dir = Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"
         pythonw = hermes_dir / "venv" / "Scripts" / "pythonw.exe"
@@ -465,13 +405,12 @@ def ensure_gateway():
                 subprocess.Popen(
                     [str(pythonw), "-m", "hermes_cli.main", "gateway", "run"],
                     cwd=str(hermes_dir),
-                    creationflags=0x08000000,  # CREATE_NO_WINDOW
+                    creationflags=0x08000000,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
             except Exception:
                 pass
-    # 等待 Gateway 端口就绪（最多 15 秒）
     for i in range(15):
         time.sleep(1)
         if _port_alive(8642):
@@ -483,23 +422,19 @@ def ensure_gateway():
 # ══════════════════════════════════════════
 
 def _apply_dark_titlebar(hwnd):
-    """设置深色标题栏（仅颜色，图标由 pywebview 原生处理）"""
     if not _IS_WIN:
         return
     dwmapi = ctypes.windll.dwmapi
-    # 设置标题栏颜色为纯黑
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR,
             ctypes.byref(ctypes.c_int(0x000000)), 4)
     except Exception:
         pass
-    # 设置边框颜色为纯黑（消除 Windows 11 的灰色边框）
     try:
-        dwmapi.DwmSetWindowAttribute(hwnd, 34,  # DWMWA_BORDER_COLOR
+        dwmapi.DwmSetWindowAttribute(hwnd, 34,
             ctypes.byref(ctypes.c_int(0x000000)), 4)
     except Exception:
         pass
-    # 启用深色模式
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
             ctypes.byref(ctypes.c_int(1)), 4)
@@ -528,48 +463,11 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # 启动独立 splash（Logo + 服务检测 + 淡出）
-    run_splash()
-
-    # ── WSL 2 fallback: start services, print URL, exit ──
-    if _IS_WSL:
-        # Give services time to start
-        time.sleep(1)
-        print("=" * 50)
-        print("  Hermes Pulse (WSL 2 mode)")
-        print("=" * 50)
-        print(f"\n  Config server: {URL}")
-        print(f"  Gateway:       http://127.0.0.1:8642/\n")
-        print("  Open the URL above in your Windows browser.")
-        print("  To install WSLg support for native GUI:")
-        print("    - Ensure WSLg is enabled in your WSL distro")
-        print("    - Or run this script from Windows directly.\n")
-        try:
-            _open_url_in_browser(URL)
-            print("  ✓ Attempted to open browser automatically.\n")
-        except Exception:
-            pass
-        # Keep running to maintain the services
-        try:
-            while True:
-                time.sleep(60)
-        except KeyboardInterrupt:
-            print("\n  Shutting down...")
-        sys.exit(0)
-
-    # ── Normal GUI mode (Windows, macOS, Linux with display) ──
-    # Check for display on Linux
-    if _IS_LINUX and not _IS_WSL:
-        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-            print("ERROR: No display server detected (DISPLAY/WAYLAND_DISPLAY not set).")
-            print("       Please run from a graphical session or set DISPLAY=:0")
-            sys.exit(1)
-
-    # ── Single-instance lock (prevent duplicate windows) ──
+    # ── Single-instance lock ──
     if not _acquire_instance_lock():
         sys.exit(0)
 
-    # Detect screen size (不创建 tkinter 窗口，避免闪烁)
+    # Detect screen size
     sw, sh = 1920, 1080
     if _IS_WIN:
         try:
@@ -592,7 +490,10 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # WebView2 初始化（主线程阻塞）
+    # 先启动 splash（主线程），同时服务在后台线程启动
+    run_splash()
+
+    # splash 结束后，创建窗口并启动 WebView2
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -607,16 +508,6 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # 等页面加载完再显示窗口（splash 期间 WebView2 已在后台加载）
-        for _ in range(30):  # 最多等 3 秒
-            try:
-                if window.native and window.native.Handle:
-                    break
-            except:
-                pass
-            time.sleep(0.1)
-        # 额外等 1.5 秒让页面渲染
-        time.sleep(1.5)
         if window:
             window.show()
         if _IS_WIN:
