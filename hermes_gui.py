@@ -594,9 +594,11 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # 主线程：splash（服务检测）→ 创建窗口 → 显示
+    # splash 在主线程跑（服务检测 + 淡出）
     run_splash()
 
+    # splash 淡出期间 WebView2 已经在后台线程初始化了一部分
+    # 现在主线程继续创建窗口，速度会更快
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -631,4 +633,3 @@ if __name__ == '__main__':
 
     _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
     webview.start(debug=False, icon=_icon_arg)
-    os._exit(0)
