@@ -65,8 +65,15 @@ async function loadProfiles() {
 function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
-  el.querySelector('.agent-name').textContent = getProfileLabel(currentProfile);
-  el.querySelector('.agent-icon').textContent = getProfileIcon(currentProfile);
+  const iconEl = el.querySelector('.agent-icon');
+  const nameEl = el.querySelector('.agent-name');
+  if (iconEl) {
+    const tmp = document.createElement('span');
+    tmp.innerHTML = getProfileIcon(currentProfile);
+    iconEl.replaceWith(tmp);
+    tmp.className = 'agent-icon';
+  }
+  if (nameEl) nameEl.textContent = getProfileLabel(currentProfile);
 }
 
 function toggleAgentDropdown(e) {
