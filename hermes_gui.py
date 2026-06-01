@@ -307,7 +307,7 @@ def run_splash(poll_fn=None):
     cfg_ok = False
     gw_ok = False
 
-    # 等待服务就绪，最多 8 秒
+    # 第一阶段：等待服务就绪（最多 8 秒）
     while time.time() - start_time < 8.0:
         elapsed = time.time() - start_time
         if not cfg_ok:
@@ -317,7 +317,6 @@ def run_splash(poll_fn=None):
 
         if cfg_ok and gw_ok:
             _update_splash_text("准 备 就 绪 ✓")
-            time.sleep(0.3)
             break
         elif cfg_ok:
             _update_splash_text("网 关 就 绪 ✓")
@@ -330,17 +329,16 @@ def run_splash(poll_fn=None):
             break
         time.sleep(0.05)
 
-    # 确保显示最终状态
-    _update_splash_text("准 备 就 绪 ✓")
-    try:
-        root.update()
-    except Exception:
-        pass
-    time.sleep(0.2)
-    try:
-        root.update()
-    except Exception:
-        pass
+    # 第二阶段：服务就绪后，等界面加载（3 秒）
+    # 这段时间 WebView2 在后台预热，splash 保持可见覆盖空白间隔
+    if cfg_ok:
+        for i in range(30):
+            _update_splash_text(f"界 面 加 载 中 ...")
+            try:
+                root.update()
+            except Exception:
+                break
+            time.sleep(0.1)
 
     # 淡出特效：0.4秒内从不透明渐变到透明
     try:
