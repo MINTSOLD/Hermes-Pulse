@@ -181,7 +181,7 @@ body {
 @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 .tab .tab-close { display: none; background: none; border: none; color: var(--text-muted); font-size: 13px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
 .tab:hover .tab-close { display: inline; }
-.btn-new-tab { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; }
+.btn-new-tab { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; }
 .btn-new-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
 /* 历史会话下拉按钮 */
