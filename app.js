@@ -27,19 +27,25 @@ function currentTab() { return tabs[currentTabIndex]; }
 let profiles = [];  // 从 config_server 加载
 let currentProfile = 'default';
 
-const PROFILE_ICONS = {
-  default: '主', coding: '码', writing: '文', research: '研',
-  creative: '创', business: '商', learning: '学', custom: '自',
+// SVG 图标 — 透明底，线条风格，颜色跟随界面
+const PROFILE_SVG = {
+  default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>',
+  coding: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  writing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+  creative: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>',
+  business: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>',
+  learning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>',
 };
+
+function getProfileIcon(name) {
+  return PROFILE_SVG[name] ? `<span class="agent-icon-svg">${PROFILE_SVG[name]}</span>` : `<span class="agent-icon-text">${name[0] || 'A'}</span>`;
+}
 const PROFILE_LABELS = {
   default: '默认助手', coding: '编程专家', writing: '写作助手',
   research: '研究员', creative: '创意师', business: '商务顾问',
   learning: '学习导师', custom: '自定义',
 };
-
-function getProfileIcon(name) {
-  return PROFILE_ICONS[name] || 'A';
-}
 function getProfileLabel(name) {
   return PROFILE_LABELS[name] || name;
 }
