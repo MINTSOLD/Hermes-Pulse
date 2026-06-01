@@ -528,8 +528,8 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # 启动 splash（Logo + 服务检测 + 淡出）
-    run_splash()
+    # HTML splash 在页面内自动显示，不需要 tkinter splash
+    # webview.start() 会直接显示窗口，页面内的 splash 覆盖层自动淡出
 
     # ── WSL 2 fallback: start services, print URL, exit ──
     if _IS_WSL:
