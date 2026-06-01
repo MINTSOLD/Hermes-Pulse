@@ -39,7 +39,7 @@ const PROFILE_SVG = {
 };
 
 function getProfileIcon(name) {
-  return PROFILE_SVG[name] || '';
+  return PROFILE_SVG[name] || `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">${(name||'A')[0].toUpperCase()}</text></svg>`;
 }
 const PROFILE_LABELS = {
   default: '默认助手', coding: '编程专家', writing: '写作助手',
@@ -66,7 +66,7 @@ function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
   const iconEl = el.querySelector('.agent-icon');
-  if (iconEl) iconEl.innerHTML = PROFILE_SVG[currentProfile] || '';
+  if (iconEl) iconEl.innerHTML = getProfileIcon(currentProfile);
   const nameEl = el.querySelector('.agent-name');
   if (nameEl) nameEl.textContent = getProfileLabel(currentProfile);
 }
