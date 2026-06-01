@@ -528,8 +528,8 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # HTML splash 在页面内自动显示，不需要 tkinter splash
-    # webview.start() 会直接显示窗口，页面内的 splash 覆盖层自动淡出
+    # 启动独立 splash（Logo + 服务检测 + 淡出）
+    run_splash()
 
     # ── WSL 2 fallback: start services, print URL, exit ──
     if _IS_WSL:
@@ -607,12 +607,6 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # 等页面加载完再显示窗口（splash 已在页面内就绪）
-        try:
-            window.events.loaded.wait(timeout=10)
-        except:
-            pass
-        time.sleep(0.3)  # 额外等 0.3s 确保渲染完成
         if window:
             window.show()
         if _IS_WIN:

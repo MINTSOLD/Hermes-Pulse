@@ -145,13 +145,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await manualReconnect();
   // 每30秒自动检查连接状态
   setInterval(checkConnection, 30000);
-
-  // HTML splash 淡出 — 页面加载完立刻执行，零间隙
-  const splash = document.getElementById('app-splash');
-  if (splash) {
-    splash.classList.add('fade-out');
-    setTimeout(() => splash.remove(), 500);
-  }
 });
 
 function initEventListeners() {
