@@ -171,12 +171,12 @@ def run_splash():
     )
     root.update()
 
-    # 显示 1.5 秒（品牌展示），不等服务
-    time.sleep(1.5)
+    # 显示 1 秒（品牌展示），不等服务
+    time.sleep(1.0)
 
-    # 淡出特效
+    # 淡出特效（0.3秒）
     try:
-        for i in range(8):
+        for i in range(6):
             alpha = 1.0 - (i + 1) / 8.0
             root.attributes("-alpha", max(alpha, 0.0))
             root.update()
