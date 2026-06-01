@@ -571,28 +571,32 @@ if __name__ == '__main__':
     if not _acquire_instance_lock():
         sys.exit(0)
 
-    # Detect screen size
+    # Detect screen size (不创建 tkinter 窗口，避免闪烁)
     sw, sh = 1920, 1080
-    try:
-        import tkinter as _tk
-        _r = _tk.Tk()
-        sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
-        _r.destroy()
-    except Exception:
-        pass
+    if _IS_WIN:
+        try:
+            user32 = ctypes.windll.user32
+            sw = user32.GetSystemMetrics(0)
+            sh = user32.GetSystemMetrics(1)
+        except Exception:
+            pass
+    else:
+        try:
+            import tkinter as _tk
+            _r = _tk.Tk()
+            _r.withdraw()
+            sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
+            _r.destroy()
+        except Exception:
+            pass
 
     win_w, win_h = 1200, 800
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # 先显示 splash（后台线程），同时让 WebView2 在主线程预初始化
-    splash_done = threading.Event()
-    def _run_splash_bg():
-        run_splash()
-        splash_done.set()
-    threading.Thread(target=_run_splash_bg, daemon=True).start()
+    # 主线程：splash → 创建窗口 → 显示
+    run_splash()
 
-    # 在主线程创建 webview 窗口并启动 — WebView2 在这里初始化
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -607,8 +611,6 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # 等 splash 完成后再显示窗口
-        splash_done.wait(timeout=10)
         if window:
             window.show()
         # Windows: 后台设置深色标题栏
