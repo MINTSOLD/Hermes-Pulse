@@ -329,10 +329,10 @@ def run_splash(poll_fn=None):
             break
         time.sleep(0.05)
 
-    # 第二阶段：服务就绪后，等界面加载（3 秒）
+    # 第二阶段：服务就绪后，等界面加载（4 秒）
     # 这段时间 WebView2 在后台预热，splash 保持可见覆盖空白间隔
     if cfg_ok:
-        for i in range(30):
+        for i in range(40):
             _update_splash_text(f"界 面 加 载 中 ...")
             try:
                 root.update()
