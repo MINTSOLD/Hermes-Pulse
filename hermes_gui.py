@@ -136,56 +136,34 @@ def _port_alive(port, timeout=1):
 
 
 # ══════════════════════════════════════════
-#  Quick Splash (tkinter, 1.5s brand display)
+#  Splash HTML (loaded inside pywebview, zero conflict)
 # ══════════════════════════════════════════
-import tkinter as tk
 
-def run_splash():
-    BG = "#010101"
-    LOGO_SIZE = 280
-    root = tk.Tk()
-    root.overrideredirect(True)
-    root.attributes("-topmost", True)
-    root.configure(bg=BG)
-    if _IS_WIN:
-        root.attributes("-transparentcolor", BG)
-    elif _IS_MAC:
-        try: root.attributes("-alpha", 0.95)
-        except: pass
-    elif _IS_LINUX:
-        try: root.attributes("-transparentcolor", BG)
-        except: pass
-
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-    W, H = 340, 360
-    x, y = (sw - W) // 2, (sh - H) // 2
-    root.geometry(f"{W}x{H}+{x}+{y}")
-    canvas = tk.Canvas(root, width=W, height=H, bg=BG, highlightthickness=0)
-    canvas.pack()
-
-    logo_y = H // 2 - 25
+def _splash_html():
+    """Inline splash HTML — brand display, no tkinter."""
+    import base64
+    logo_data = b""
     if os.path.exists(LOGO_PNG):
         try:
-            pil = PILImage.open(LOGO_PNG).convert("RGBA")
-            pil = pil.resize((LOGO_SIZE, LOGO_SIZE), PILImage.LANCZOS)
-            from PIL import ImageTk
-            logo_tk = ImageTk.PhotoImage(pil)
-            canvas.create_image(W // 2, logo_y, image=logo_tk, anchor="center")
+            with open(LOGO_PNG, "rb") as f:
+                logo_data = base64.b64encode(f.read()).decode()
         except: pass
-
-    root.update()
-    time.sleep(1.5)  # 品牌展示 1.5 秒
-
-    # 淡出 0.3 秒
-    try:
-        for i in range(6):
-            root.attributes("-alpha", 1.0 - (i + 1) / 6.0)
-            root.update()
-            time.sleep(0.05)
-    except: pass
-
-    try: root.destroy()
-    except: pass
+    logo_tag = f'<img src="data:image/png;base64,{logo_data}" style="width:140px;height:140px;filter:drop-shadow(0 0 30px rgba(212,175,55,0.4));animation:pulse 2s ease-in-out infinite;">' if logo_data else ""
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+.wrap{{text-align:center;animation:fadeIn 0.5s ease}}
+.logo{{margin-bottom:16px}}
+.title{{color:#fff;font-size:28px;font-weight:300;letter-spacing:6px;margin-bottom:8px}}
+.sub{{color:#888;font-size:12px;letter-spacing:3px}}
+@keyframes pulse{{0%,100%{{transform:scale(1)}}50%{{transform:scale(1.05)}}}}
+@keyframes fadeIn{{from{{opacity:0;transform:translateY(10px)}}to{{opacity:1;transform:translateY(0)}}}}
+</style></head><body>
+<div class="wrap"><div class="logo">{logo_tag}</div>
+<div class="title">HERMES</div>
+<div class="sub">轻于形 · 智于心</div></div>
+</body></html>"""
 
 
 # ══════════════════════════════════════════
@@ -288,10 +266,7 @@ if __name__ == '__main__':
     if not _acquire_instance_lock():
         sys.exit(0)
 
-    # Splash（1.5 秒品牌展示 + 0.3 秒淡出）
-    run_splash()
-
-    # 直接创建窗口并启动
+    # Screen size
     sw, sh = 1920, 1080
     if _IS_WIN:
         try:
@@ -300,23 +275,30 @@ if __name__ == '__main__':
         except: pass
 
     win_w, win_h = 1200, 800
-    w = webview.create_window('Hermes', URL,
+
+    # Create window with splash HTML first (no tkinter!)
+    splash = _splash_html()
+    w = webview.create_window('Hermes', html=splash,
         x=(sw-win_w)//2, y=(sh-win_h)//2,
         width=win_w, height=win_h,
         min_size=(800, 600), resizable=True, text_select=True,
-        hidden=True, background_color="#000000")
+        background_color="#000000")
     window = w
     w.events.closing += on_window_close
     _minimize_to_tray = True
 
-    def show_main():
+    def _after_splash():
+        """Wait 2s for brand display, then navigate to real page."""
         global window
-        if window: window.show()
+        time.sleep(2)
+        try:
+            w.load_url(URL)
+        except: pass
         if _IS_WIN:
             def _later():
                 for _ in range(50):
                     try:
-                        if window.native and window.native.Handle:
+                        if window and window.native and window.native.Handle:
                             _apply_dark_titlebar(window.native.Handle.ToInt32())
                             return
                     except: pass
@@ -324,7 +306,7 @@ if __name__ == '__main__':
             threading.Thread(target=_later, daemon=True).start()
         threading.Thread(target=start_tray, daemon=True).start()
 
-    threading.Thread(target=show_main, daemon=True).start()
+    threading.Thread(target=_after_splash, daemon=True).start()
 
     _icon = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
     webview.start(debug=False, icon=_icon)
