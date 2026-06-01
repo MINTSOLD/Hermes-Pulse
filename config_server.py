@@ -228,6 +228,17 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
+    def _json_response(self, data):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
+
+    def _get_current_profile(self):
+        """获取当前 profile 名称（从环境变量或默认）"""
+        return os.environ.get("HERMES_PROFILE", "default")
+
     def do_GET(self):
         # 静态文件服务 — GUI 资源 (同源，无 CORS 问题)
         import time as _time
@@ -324,6 +335,23 @@ class Handler(BaseHTTPRequestHandler):
                 self._json_response({"personalities": result})
             except Exception as e:
                 self._json_response({"personalities": [], "error": str(e)})
+        elif self.path == "/profiles":
+            # 列出所有 profiles
+            try:
+                profiles_dir = HERMES_DIR / "profiles"
+                profiles = []
+                if profiles_dir.exists():
+                    for d in profiles_dir.iterdir():
+                        if d.is_dir() and not d.name.startswith('.'):
+                            cfg = d / "config.yaml"
+                            has_config = cfg.exists()
+                            profiles.append({"name": d.name, "has_config": has_config})
+                # 默认 profile 始终存在
+                if not any(p["name"] == "default" for p in profiles):
+                    profiles.insert(0, {"name": "default", "has_config": True})
+                self._json_response({"profiles": profiles, "current": self._get_current_profile()})
+            except Exception as e:
+                self._json_response({"profiles": [], "error": str(e)})
         elif self.path.startswith("/gateway/"):
             # 代理 Gateway 请求（转发 Authorization 头）
             real_path = self.path[len("/gateway"):]
@@ -519,6 +547,48 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
                 else:
                     config["agent"]["personalities"][name] = prompt
                 config_path.write_text(yaml.dump(config, allow_unicode=True, default_flow_style=False), encoding="utf-8")
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
+            return
+        elif self.path == "/profiles/create":
+            # 创建新 profile
+            name = body.get("name", "").strip()
+            if not name or name in ("default", ""):
+                self._json_response({"ok": False, "error": "invalid name"})
+                return
+            try:
+                profile_dir = HERMES_DIR / "profiles" / name
+                profile_dir.mkdir(parents=True, exist_ok=True)
+                # 复制默认 config.yaml
+                default_cfg = HERMES_DIR / "config.yaml"
+                if default_cfg.exists():
+                    import shutil
+                    shutil.copy2(default_cfg, profile_dir / "config.yaml")
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
+            return
+        elif self.path == "/profiles/switch":
+            # 切换当前 profile
+            name = body.get("name", "default").strip()
+            try:
+                os.environ["HERMES_PROFILE"] = name
+                self._json_response({"ok": True, "current": name})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
+            return
+        elif self.path == "/profiles/delete":
+            # 删除 profile
+            name = body.get("name", "").strip()
+            if name == "default":
+                self._json_response({"ok": False, "error": "cannot delete default"})
+                return
+            try:
+                import shutil
+                profile_dir = HERMES_DIR / "profiles" / name
+                if profile_dir.exists():
+                    shutil.rmtree(profile_dir)
                 self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
@@ -795,13 +865,6 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             self.send_response(404)
             self._cors()
             self.end_headers()
-
-    def _json_response(self, data):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self._cors()
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
 
     def _proxy_to_gateway(self, path, method="GET", body=None, headers=None):
         """代理请求到 Gateway API 服务器"""

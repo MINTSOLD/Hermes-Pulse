@@ -22,36 +22,27 @@ let _tabsLoaded = false;
 function currentTab() { return tabs[currentTabIndex]; }
 
 // ============================================
-// Agent / Personality 管理
+// Agent / Profile 管理
 // ============================================
-let personalities = [];  // 从 config_server 加载
-const PERSONALITY_ICONS = {
-  helpful: '😊', concise: '✂️', technical: '🔧', creative: '🎨',
-  teacher: '📚', kawaii: '🌸', catgirl: '🐱', pirate: '🏴‍☠️',
-  shakespeare: '🎭', surfer: '🏄', noir: '🕵️', uwu: '💜',
-  philosopher: '🤔', hype: '🔥',
-};
-const PERSONALITY_LABELS = {
-  helpful: '友好助手', concise: '简洁回复', technical: '技术专家',
-  creative: '创意助手', teacher: '耐心老师', kawaii: '可爱风格',
-  catgirl: '猫娘', pirate: '海盗', shakespeare: '莎士比亚',
-  surfer: '冲浪达人', noir: '黑色侦探', uwu: 'UwU 风格',
-  philosopher: '哲学家', hype: '激情达人',
+let profiles = [];  // 从 config_server 加载
+let currentProfile = 'default';
+
+const PROFILE_ICONS = {
+  default: '🏠', coding: '💻', writing: '✍️', research: '🔍',
+  creative: '🎨', business: '💼', learning: '📚', custom: '⭐',
 };
 
-function getPersonalityIcon(name) {
-  return PERSONALITY_ICONS[name] || '🤖';
-}
-function getPersonalityLabel(name) {
-  return PERSONALITY_LABELS[name] || name;
+function getProfileIcon(name) {
+  return PROFILE_ICONS[name] || '🤖';
 }
 
-async function loadPersonalities() {
+async function loadProfiles() {
   try {
-    const r = await fetch(`${CONFIG_SERVER}/personalities`, { signal: AbortSignal.timeout(3000) });
+    const r = await fetch(`${CONFIG_SERVER}/profiles`, { signal: AbortSignal.timeout(3000) });
     if (r.ok) {
       const data = await r.json();
-      personalities = data.personalities || [];
+      profiles = data.profiles || [];
+      currentProfile = data.current || 'default';
     }
   } catch {}
   updateAgentSelector();
@@ -60,10 +51,8 @@ async function loadPersonalities() {
 function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
-  const tab = currentTab();
-  const name = tab.personality || 'helpful';
-  el.querySelector('.agent-name').textContent = getPersonalityLabel(name);
-  el.querySelector('.agent-icon').textContent = getPersonalityIcon(name);
+  el.querySelector('.agent-name').textContent = currentProfile;
+  el.querySelector('.agent-icon').textContent = getProfileIcon(currentProfile);
 }
 
 function toggleAgentDropdown(e) {
@@ -86,81 +75,72 @@ function closeAgentDropdown() {
 function renderAgentDropdown() {
   const dd = document.getElementById('agent-dropdown');
   if (!dd) return;
-  const tab = currentTab();
-  const current = tab.personality || 'helpful';
 
-  // 分区：预设 + 趣味
-  const presetNames = ['helpful', 'concise', 'technical', 'creative', 'teacher'];
-  const funNames = ['kawaii', 'catgirl', 'pirate', 'shakespeare', 'surfer', 'noir', 'uwu', 'philosopher', 'hype'];
-  const customNames = personalities.filter(p => !presetNames.includes(p.name) && !funNames.includes(p.name));
-
-  let html = '';
-
-  // 预设
-  html += '<div class="agent-section-title">系统预设</div>';
-  presetNames.forEach(name => {
-    const p = personalities.find(x => x.name === name);
-    const desc = p ? p.description : '';
-    const active = name === current ? ' active' : '';
-    html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
-      <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
-      <div class="agent-item-info"><div class="agent-item-name">${getPersonalityLabel(name)}</div>
-      <div class="agent-item-desc">${desc}</div></div></div>`;
+  let html = '<div class="agent-section-title">Agent 空间</div>';
+  profiles.forEach(p => {
+    const active = p.name === currentProfile ? ' active' : '';
+    html += `<div class="agent-item${active}" onclick="switchProfile('${p.name}')">
+      <span class="agent-item-icon">${getProfileIcon(p.name)}</span>
+      <div class="agent-item-info"><div class="agent-item-name">${p.name}</div>
+      <div class="agent-item-desc">${p.name === 'default' ? '默认空间' : '独立空间'}</div></div></div>`;
   });
 
-  // 趣味
-  html += '<div class="agent-divider"></div><div class="agent-section-title">趣味人格</div>';
-  funNames.forEach(name => {
-    const p = personalities.find(x => x.name === name);
-    const desc = p ? p.description : '';
-    const active = name === current ? ' active' : '';
-    html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
-      <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
-      <div class="agent-item-info"><div class="agent-item-name">${getPersonalityLabel(name)}</div>
-      <div class="agent-item-desc">${desc}</div></div></div>`;
-  });
-
-  // 自定义
-  if (customNames.length > 0) {
-    html += '<div class="agent-divider"></div><div class="agent-section-title">自定义</div>';
-    customNames.forEach(p => {
-      const active = p.name === current ? ' active' : '';
-      html += `<div class="agent-item${active}" onclick="selectAgent('${p.name}')">
-        <span class="agent-item-icon">⭐</span>
-        <div class="agent-item-info"><div class="agent-item-name">${p.name}</div>
-        <div class="agent-item-desc">${p.description}</div></div></div>`;
-    });
-  }
-
-  // 操作区
   html += '<div class="agent-divider"></div>';
-  html += '<div class="agent-action" onclick="showCreateAgentModal()">➕ 新建自定义 Agent</div>';
+  html += '<div class="agent-action" onclick="showCreateProfileModal()">➕ 新建 Agent</div>';
+  if (currentProfile !== 'default') {
+    html += '<div class="agent-action" onclick="deleteCurrentProfile()">🗑️ 删除当前 Agent</div>';
+  }
 
   dd.innerHTML = html;
 }
 
-function selectAgent(name) {
-  const tab = currentTab();
-  tab.personality = name;
-  updateAgentSelector();
-  renderTabBar();
-  saveTabs();
-  closeAgentDropdown();
+async function switchProfile(name) {
+  try {
+    await fetch(`${CONFIG_SERVER}/profiles/switch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    currentProfile = name;
+    updateAgentSelector();
+    renderTabBar();
+    closeAgentDropdown();
+    // 重新加载配置和会话
+    await loadRealConfig();
+    loadModels();
+    loadSessions();
+  } catch {}
 }
 
-function showCreateAgentModal() {
+function showCreateProfileModal() {
   closeAgentDropdown();
-  // 简单 prompt 弹窗
-  const name = prompt('Agent 名称（英文，如 mybot）：');
-  if (!name) return;
-  const prompt_text = prompt('System Prompt（描述这个 Agent 的行为）：');
-  if (!prompt_text) return;
+  const name = prompt('Agent 名称（英文，如 coding）：');
+  if (!name || name === 'default') return;
 
-  fetch(`${CONFIG_SERVER}/save_personality`, {
+  fetch(`${CONFIG_SERVER}/profiles/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name.trim(), prompt: prompt_text.trim() }),
-  }).then(() => loadPersonalities());
+    body: JSON.stringify({ name: name.trim() }),
+  }).then(() => {
+    switchProfile(name.trim());
+    loadProfiles();
+  });
+}
+
+async function deleteCurrentProfile() {
+  if (currentProfile === 'default') return;
+  if (!confirm(`确定删除 Agent "${currentProfile}" 吗？所有数据将丢失。`)) return;
+
+  await fetch(`${CONFIG_SERVER}/profiles/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: currentProfile }),
+  });
+  currentProfile = 'default';
+  updateAgentSelector();
+  renderTabBar();
+  loadProfiles();
+  closeAgentDropdown();
 }
 
 // 启动时从磁盘恢复会话
@@ -284,7 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadRealConfig();
   loadModels();
   loadSessions();
-  loadPersonalities();
+  loadProfiles();
   await manualReconnect();
   // 每30秒自动检查连接状态
   setInterval(checkConnection, 30000);
@@ -1342,7 +1322,7 @@ function newChat() {
 
   // Create a new tab
   const newId = 'tab-' + Date.now();
-  const newTab = { id: newId, name: '新对话', personality: currentTab().personality || 'helpful', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) };
+  const newTab = { id: newId, name: '新对话', chatHistory: [], totalPromptTokens: 0, completedTokens: 0, messagesHtml: '', sessionId: 'gui-session-' + Date.now().toString(36) };
   tabs.push(newTab);
   currentTabIndex = tabs.length - 1;
   saveTabs();
@@ -1423,8 +1403,8 @@ function renderTabBar() {
     div.className = 'tab' + (i === currentTabIndex ? ' active' : '');
     div.dataset.index = i;
     div.onclick = () => switchTab(i);
-    const agentName = tab.personality || 'helpful';
-    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getPersonalityIcon(agentName)} ${getPersonalityLabel(agentName)}</span>`;
+    const agentName = currentProfile;
+    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getProfileIcon(agentName)} ${agentName}</span>`;
     if (tabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
@@ -1923,7 +1903,7 @@ function sendMessage() {
     headers: {
       'Content-Type': 'application/json',
       'X-Hermes-Session-Id': currentTab().sessionId || state.sessionId,
-      'X-Hermes-Personality': currentTab().personality || 'helpful',
+      'X-Hermes-Personality': currentProfile || 'default',
       ...(state.gatewayApiKey ? { 'Authorization': `Bearer ${state.gatewayApiKey}` } : {}),
     },
     body: JSON.stringify({
