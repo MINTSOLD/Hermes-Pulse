@@ -528,9 +528,8 @@ if __name__ == '__main__':
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # 直接启动 WebView2，不用 splash
-    # splash 和 webview.start() 都要主线程，串行必然有间隔
-    # 去掉 splash 后窗口立刻出现，页面后台加载
+    # 启动 splash（Logo + 服务检测 + 淡出）
+    run_splash()
 
     # ── WSL 2 fallback: start services, print URL, exit ──
     if _IS_WSL:
