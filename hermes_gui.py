@@ -607,6 +607,12 @@ if __name__ == '__main__':
 
     def show_main():
         global window
+        # 等页面加载完再显示窗口（splash 已在页面内就绪）
+        try:
+            window.events.loaded.wait(timeout=10)
+        except:
+            pass
+        time.sleep(0.3)  # 额外等 0.3s 确保渲染完成
         if window:
             window.show()
         if _IS_WIN:
