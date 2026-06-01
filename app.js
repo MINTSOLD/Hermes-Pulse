@@ -31,9 +31,19 @@ const PERSONALITY_ICONS = {
   shakespeare: '🎭', surfer: '🏄', noir: '🕵️', uwu: '💜',
   philosopher: '🤔', hype: '🔥',
 };
+const PERSONALITY_LABELS = {
+  helpful: '友好助手', concise: '简洁回复', technical: '技术专家',
+  creative: '创意助手', teacher: '耐心老师', kawaii: '可爱风格',
+  catgirl: '猫娘', pirate: '海盗', shakespeare: '莎士比亚',
+  surfer: '冲浪达人', noir: '黑色侦探', uwu: 'UwU 风格',
+  philosopher: '哲学家', hype: '激情达人',
+};
 
 function getPersonalityIcon(name) {
   return PERSONALITY_ICONS[name] || '🤖';
+}
+function getPersonalityLabel(name) {
+  return PERSONALITY_LABELS[name] || name;
 }
 
 async function loadPersonalities() {
@@ -52,7 +62,7 @@ function updateAgentSelector() {
   if (!el) return;
   const tab = currentTab();
   const name = tab.personality || 'helpful';
-  el.querySelector('.agent-name').textContent = name;
+  el.querySelector('.agent-name').textContent = getPersonalityLabel(name);
   el.querySelector('.agent-icon').textContent = getPersonalityIcon(name);
 }
 
@@ -94,7 +104,7 @@ function renderAgentDropdown() {
     const active = name === current ? ' active' : '';
     html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
       <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
-      <div class="agent-item-info"><div class="agent-item-name">${name}</div>
+      <div class="agent-item-info"><div class="agent-item-name">${getPersonalityLabel(name)}</div>
       <div class="agent-item-desc">${desc}</div></div></div>`;
   });
 
@@ -106,7 +116,7 @@ function renderAgentDropdown() {
     const active = name === current ? ' active' : '';
     html += `<div class="agent-item${active}" onclick="selectAgent('${name}')">
       <span class="agent-item-icon">${getPersonalityIcon(name)}</span>
-      <div class="agent-item-info"><div class="agent-item-name">${name}</div>
+      <div class="agent-item-info"><div class="agent-item-name">${getPersonalityLabel(name)}</div>
       <div class="agent-item-desc">${desc}</div></div></div>`;
   });
 
@@ -1414,7 +1424,7 @@ function renderTabBar() {
     div.dataset.index = i;
     div.onclick = () => switchTab(i);
     const agentName = tab.personality || 'helpful';
-    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getPersonalityIcon(agentName)} ${agentName}</span>`;
+    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getPersonalityIcon(agentName)} ${getPersonalityLabel(agentName)}</span>`;
     if (tabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
