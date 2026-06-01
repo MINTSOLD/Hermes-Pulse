@@ -6,7 +6,7 @@
   <title>Hermes</title>
   <link rel="stylesheet" href="styles.css?v=6">
   <style>
-    /* 启动画面 — 黑底盖住界面，淡出后露出 */
+    /* 启动画面 — 透明底，logo 跟界面重叠，淡出无缝衔接 */
     #app-splash {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       z-index: 99999; background: #000;
@@ -14,17 +14,37 @@
       transition: opacity 0.4s ease;
     }
     #app-splash.fade-out { opacity: 0; pointer-events: none; }
-    #app-splash img { width: 200px; height: 200px; }
+    #app-splash .splash-logo-wrap {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      margin-bottom: 28px;
+    }
+    #app-splash .splash-glow {
+      position: absolute; width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+      animation: splash-pulse 4s ease-in-out infinite; pointer-events: none;
+    }
+    #app-splash .splash-logo {
+      width: 140px; height: 140px; object-fit: contain;
+      filter: drop-shadow(0 0 20px rgba(255,255,255,0.08));
+      position: relative; z-index: 1;
+    }
     #app-splash .splash-text {
       font-family: "Microsoft YaHei", sans-serif; font-size: 13px;
-      color: #666; letter-spacing: 4px; margin-top: 16px;
+      color: #666; letter-spacing: 4px;
+    }
+    @keyframes splash-pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.4; }
+      50%      { transform: scale(1.15); opacity: 0.8; }
     }
   </style>
 </head>
 <body>
-  <!-- 启动画面 -->
+  <!-- 启动画面 — 跟界面 logo 重叠 -->
   <div id="app-splash">
-    <img src="hermes-logo.png" alt="Hermes">
+    <div class="splash-logo-wrap">
+      <div class="splash-glow"></div>
+      <img src="hermes-logo.png" class="splash-logo" alt="Hermes">
+    </div>
     <div class="splash-text">正 在 加 载 ...</div>
   </div>
 
