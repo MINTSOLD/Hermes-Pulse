@@ -35,10 +35,17 @@ ICON_TASKBAR = os.path.join(SCRIPT_DIR, "hermes.ico")
 LOGO_PNG = os.path.join(SCRIPT_DIR, "hermes-logo.png")
 CONFIG_SERVER = os.path.join(SCRIPT_DIR, "config_server.py")
 
-# ── Win32 constants (only used on Windows) ──
+# ── Win32 constants ──
 if _IS_WIN:
     DWMWA_CAPTION_COLOR = 35
     DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+    WS_POPUP = 0x80000000
+    WS_EX_TOPMOST = 0x00000008
+    WS_EX_TOOLWINDOW = 0x00000080
+    SWP_NOMOVE = 0x0002
+    SWP_NOSIZE = 0x0001
+    SWP_SHOWWINDOW = 0x0040
+    HWND_TOPMOST = -1
 
 window = None
 tray_icon = None
@@ -46,7 +53,7 @@ _minimize_to_tray = False
 
 
 # ══════════════════════════════════════════
-#  Single-instance lock (Windows only)
+#  Single-instance lock
 # ══════════════════════════════════════════
 _instance_mutex = None
 
@@ -55,10 +62,9 @@ def _acquire_instance_lock():
     if not _IS_WIN:
         return True
     try:
-        import ctypes as _ctypes_mod
-        kernel32 = _ctypes_mod.windll.kernel32
+        kernel32 = ctypes.windll.kernel32
         _instance_mutex = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
-        if _ctypes_mod.windll.kernel32.GetLastError() == 183:
+        if kernel32.GetLastError() == 183:
             return False
         return True
     except Exception:
@@ -66,7 +72,7 @@ def _acquire_instance_lock():
 
 
 # ══════════════════════════════════════════
-#  Cross-platform helpers
+#  Helpers
 # ══════════════════════════════════════════
 
 def _get_python_command():
@@ -81,24 +87,12 @@ def _get_python_command():
             if os.path.isfile(p):
                 return p
         return sys.executable
-    else:
-        return sys.executable
-
-
-def _which(cmd):
-    import shutil
-    return shutil.which(cmd)
+    return sys.executable
 
 
 def _get_creationflags():
-    if _IS_WIN:
-        return 0x08000000
-    return 0
+    return 0x08000000 if _IS_WIN else 0
 
-
-# ══════════════════════════════════════════
-#  Port check
-# ══════════════════════════════════════════
 
 def _port_alive(port, timeout=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -106,147 +100,162 @@ def _port_alive(port, timeout=1):
     try:
         s.connect(("127.0.0.1", port))
         return True
-    except Exception:
+    except:
         return False
     finally:
         s.close()
 
 
 # ══════════════════════════════════════════
-#  Quick Splash — 只做品牌展示，不等服务
-# ══════════════════════════════════════════
-import tkinter as tk
-
-
-def run_splash():
-    """快速 splash：显示 logo 1.5 秒后淡出，不等服务"""
-    BG = "#010101"
-    LOGO_SIZE = 280
-
-    root = tk.Tk()
-    root.overrideredirect(True)
-    root.attributes("-topmost", True)
-    root.configure(bg=BG)
-
-    if _IS_WIN:
-        root.attributes("-transparentcolor", BG)
-    elif _IS_MAC:
-        try:
-            root.attributes("-alpha", 0.95)
-        except Exception:
-            pass
-    elif _IS_LINUX:
-        try:
-            root.attributes("-transparentcolor", BG)
-        except Exception:
-            pass
-
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-    W, H = 340, 360
-    x = (sw - W) // 2
-    y = (sh - H) // 2
-    root.geometry(f"{W}x{H}+{x}+{y}")
-
-    canvas = tk.Canvas(root, width=W, height=H, bg=BG, highlightthickness=0)
-    canvas.pack()
-
-    logo_y = H // 2 - 25
-    logo_tk = None
-    if os.path.exists(LOGO_PNG):
-        try:
-            pil = PILImage.open(LOGO_PNG).convert("RGBA")
-            pil = pil.resize((LOGO_SIZE, LOGO_SIZE), PILImage.LANCZOS)
-            from PIL import ImageTk
-            logo_tk = ImageTk.PhotoImage(pil)
-            canvas.create_image(W // 2, logo_y, image=logo_tk, anchor="center")
-        except Exception:
-            pass
-
-    # 加载文字
-    text_bg_y = logo_y + LOGO_SIZE // 2 + 22
-    _splash_font = ("Microsoft YaHei", 10) if _IS_WIN else ("Helvetica", 10)
-    status_id = canvas.create_text(
-        W // 2, text_bg_y, text="正 在 启 动 ...",
-        font=_splash_font, fill="#cccccc", anchor="center"
-    )
-    root.update()
-
-    # 显示 2 秒（品牌展示），不等服务
-    time.sleep(2.0)
-
-    # 淡出特效（0.3秒）
-    try:
-        for i in range(6):
-            alpha = 1.0 - (i + 1) / 8.0
-            root.attributes("-alpha", max(alpha, 0.0))
-            root.update()
-            time.sleep(0.05)
-    except Exception:
-        pass
-
-    try:
-        root.destroy()
-    except Exception:
-        pass
-
-
-# ══════════════════════════════════════════
-#  System Tray
+#  Win32 Splash Overlay（不依赖 tkinter）
 # ══════════════════════════════════════════
 
-def _tray_show(icon, item):
-    global window
-    if window:
-        window.show()
-        _focus_window()
+class Win32Splash:
+    """用 Win32 API 创建的 splash 覆盖窗口，不占用 tkinter"""
 
-def _tray_hide(icon, item):
-    global window
-    if window:
-        window.hide()
+    def __init__(self):
+        self.hwnd = None
+        self._hbitmap = None
+        self._hdc = None
 
-def _tray_exit(icon, item):
-    global _minimize_to_tray
-    _minimize_to_tray = False
-    if window:
-        window.destroy()
-    if tray_icon:
-        tray_icon.stop()
-    os._exit(0)
+    def show(self, duration=2.0):
+        """显示 splash 并等待 duration 秒后自动关闭"""
+        if not _IS_WIN:
+            return
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
 
-def _focus_window():
-    global window
-    if not window:
-        return
-    if _IS_WIN:
+        # 获取屏幕尺寸
+        sw = user32.GetSystemMetrics(0)
+        sh = user32.GetSystemMetrics(1)
+
+        # splash 尺寸
+        W, H = 340, 360
+        x = (sw - W) // 2
+        y = (sh - H) // 2
+
+        # 注册窗口类
+        WNDCLASS = type('WNDCLASS', (ctypes.Structure,), {
+            '_fields_': [
+                ('style', ctypes.c_uint), ('lpfnWndProc', ctypes.c_void_p),
+                ('cbClsExtra', ctypes.c_int), ('cbWndExtra', ctypes.c_int),
+                ('hInstance', ctypes.c_void_p), ('hIcon', ctypes.c_void_p),
+                ('hCursor', ctypes.c_void_p), ('hbrBackground', ctypes.c_void_p),
+                ('lpszMenuName', ctypes.c_wchar_p), ('lpszClassName', ctypes.c_wchar_p),
+            ]
+        })
+
+        wc = WNDCLASS()
+        wc.style = 0
+        wc.lpfnWndProc = 0
+        wc.cbClsExtra = 0
+        wc.cbWndExtra = 0
+        wc.hInstance = user32.GetModuleHandleW(None)
+        wc.hIcon = 0
+        wc.hCursor = 0
+        wc.hbrBackground = 0
+        wc.lpszMenuName = None
+        wc.lpszClassName = "HermesSplash"
+
+        user32.RegisterClassW(ctypes.byref(wc))
+
+        # 创建 splash 窗口
+        self.hwnd = user32.CreateWindowExW(
+            WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            "HermesSplash", "Hermes",
+            WS_POPUP,
+            x, y, W, H,
+            0, 0, wc.hInstance, 0
+        )
+
+        if not self.hwnd:
+            return
+
+        # 画 logo
+        self._draw_logo(W, H)
+
+        # 显示窗口
+        user32.ShowWindow(self.hwnd, SWP_SHOWWINDOW)
+        user32.UpdateWindow(self.hwnd)
+
+        # 等待指定时间
+        time.sleep(duration)
+
+    def _draw_logo(self, W, H):
+        """在 splash 窗口上画 logo"""
+        if not os.path.exists(LOGO_PNG):
+            return
         try:
             user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, "Hermes")
-            if hwnd:
-                user32.SetForegroundWindow(hwnd)
-                user32.ShowWindow(hwnd, 9)
+            gdi32 = ctypes.windll.gdi32
+
+            hdc = user32.GetDC(self.hwnd)
+
+            # 画黑色背景
+            brush = gdi32.CreateSolidBrush(0x000000)
+            rect = (ctypes.c_int * 4)(0, 0, W, H)
+            gdi32.FillRect(hdc, rect, brush)
+            gdi32.DeleteObject(brush)
+
+            # 加载 logo
+            from PIL import Image
+            pil = Image.open(LOGO_PNG).convert("RGBA")
+            pil = pil.resize((280, 280), Image.LANCZOS)
+
+            # 转为 BMP 格式
+            bmp = pil.convert("RGB")
+            bmp_data = bmp.tobytes()
+
+            BITMAPINFOHEADER = type('BITMAPINFOHEADER', (ctypes.Structure,), {
+                '_fields_': [
+                    ('biSize', ctypes.c_uint32), ('biWidth', ctypes.c_long),
+                    ('biHeight', ctypes.c_long), ('biPlanes', ctypes.c_uint16),
+                    ('biBitCount', ctypes.c_uint16), ('biCompression', ctypes.c_uint32),
+                    ('biSizeImage', ctypes.c_uint32), ('biXPelsPerMeter', ctypes.c_long),
+                    ('biYPelsPerMeter', ctypes.c_long), ('biClrUsed', ctypes.c_uint32),
+                    ('biClrImportant', ctypes.c_uint32),
+                ]
+            })
+
+            bi = BITMAPINFOHEADER()
+            bi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+            bi.biWidth = 280
+            bi.biHeight = -280  # 负数 = top-down
+            bi.biPlanes = 1
+            bi.biBitCount = 24
+            bi.biCompression = 0
+
+            hbitmap = gdi32.CreateDIBSection(
+                hdc, ctypes.byref(bi), 0,
+                ctypes.byref(ctypes.c_void_p()), 0, 0
+            )
+
+            if hbitmap:
+                # 复制像素数据
+                mem_dc = gdi32.CreateCompatibleDC(hdc)
+                old_bmp = gdi32.SelectObject(mem_dc, hbitmap)
+                ctypes.memmove(ctypes.c_void_p(), bmp_data, len(bmp_data))
+                gdi32.SelectObject(mem_dc, old_bmp)
+                gdi32.DeleteDC(mem_dc)
+
+                # 画到窗口
+                logo_x = (W - 280) // 2
+                logo_y = (H - 280) // 2 - 25
+                gdi32.BitBlt(hdc, logo_x, logo_y, 280, 280, mem_dc, 0, 0, 0x00CC0020)
+                gdi32.DeleteObject(hbitmap)
+
+            user32.ReleaseDC(self.hwnd, hdc)
         except Exception:
             pass
 
-def start_tray():
-    global tray_icon
-    import pystray
-    icon_image = None
-    if os.path.exists(ICON_TASKBAR):
-        try:
-            icon_image = PILImage.open(ICON_TASKBAR)
-        except Exception:
-            pass
-    if icon_image is None:
-        icon_image = PILImage.new("RGB", (16, 16), (212, 175, 55))
-    menu = pystray.Menu(
-        pystray.MenuItem("显示 Hermes", _tray_show, default=True),
-        pystray.MenuItem("隐藏 Hermes", _tray_hide),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("退出", _tray_exit),
-    )
-    tray_icon = pystray.Icon("Hermes", icon_image, "Hermes Pulse", menu)
-    tray_icon.run()
+    def close(self):
+        """关闭 splash 窗口"""
+        if self.hwnd and _IS_WIN:
+            try:
+                ctypes.windll.user32.DestroyWindow(self.hwnd)
+            except:
+                pass
+            self.hwnd = None
 
 
 # ══════════════════════════════════════════
@@ -269,6 +278,7 @@ def ensure_config_server():
         time.sleep(1)
         if _port_alive(18765):
             return
+
 
 def ensure_gateway():
     if _port_alive(8642):
@@ -297,7 +307,51 @@ def ensure_gateway():
 
 
 # ══════════════════════════════════════════
-#  Win32 Dark Title Bar (Windows only)
+#  System Tray
+# ══════════════════════════════════════════
+
+def _tray_show(icon, item):
+    global window
+    if window:
+        window.show()
+
+def _tray_hide(icon, item):
+    global window
+    if window:
+        window.hide()
+
+def _tray_exit(icon, item):
+    global _minimize_to_tray
+    _minimize_to_tray = False
+    if window:
+        window.destroy()
+    if tray_icon:
+        tray_icon.stop()
+    os._exit(0)
+
+def start_tray():
+    global tray_icon
+    import pystray
+    icon_image = None
+    if os.path.exists(ICON_TASKBAR):
+        try:
+            icon_image = PILImage.open(ICON_TASKBAR)
+        except Exception:
+            pass
+    if icon_image is None:
+        icon_image = PILImage.new("RGB", (16, 16), (212, 175, 55))
+    menu = pystray.Menu(
+        pystray.MenuItem("显示 Hermes", _tray_show, default=True),
+        pystray.MenuItem("隐藏 Hermes", _tray_hide),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("退出", _tray_exit),
+    )
+    tray_icon = pystray.Icon("Hermes", icon_image, "Hermes Pulse", menu)
+    tray_icon.run()
+
+
+# ══════════════════════════════════════════
+#  Dark Title Bar
 # ══════════════════════════════════════════
 
 def _apply_dark_titlebar(hwnd):
@@ -307,23 +361,16 @@ def _apply_dark_titlebar(hwnd):
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR,
             ctypes.byref(ctypes.c_int(0x000000)), 4)
-    except Exception:
-        pass
+    except: pass
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, 34,
             ctypes.byref(ctypes.c_int(0x000000)), 4)
-    except Exception:
-        pass
+    except: pass
     try:
         dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
             ctypes.byref(ctypes.c_int(1)), 4)
-    except Exception:
-        pass
+    except: pass
 
-
-# ══════════════════════════════════════════
-#  Window Close Handler
-# ══════════════════════════════════════════
 
 def on_window_close():
     global window, _minimize_to_tray
@@ -345,37 +392,39 @@ if __name__ == '__main__':
     if not _acquire_instance_lock():
         sys.exit(0)
 
-    # 快速 splash（1.5秒品牌展示 + 淡出）
-    run_splash()
-
-    # splash 结束时服务已在后台启动，直接创建窗口
-    sw, sh = 1920, 1080
     if _IS_WIN:
-        try:
-            user32 = ctypes.windll.user32
-            sw = user32.GetSystemMetrics(0)
-            sh = user32.GetSystemMetrics(1)
-        except Exception:
-            pass
+        # ═══ Windows: 两个状态并行 ═══
+        # 1. 创建 webview 窗口（hidden），后台线程启动 WebView2
+        # 2. 主线程显示 Win32 splash 覆盖层
+        # 3. splash 结束后，关闭覆盖层，显示 webview 窗口
 
-    win_w, win_h = 1200, 800
-    win_x = (sw - win_w) // 2
-    win_y = (sh - win_h) // 2
+        sw, sh = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+        win_w, win_h = 1200, 800
+        win_x, win_y = (sw - win_w) // 2, (sh - win_h) // 2
 
-    w = webview.create_window(
-        'Hermes', URL,
-        x=win_x, y=win_y,
-        width=win_w, height=win_h,
-        min_size=(800, 600),
-        resizable=True, text_select=True,
-        hidden=True,
-        background_color="#000000")
-    window = w
-    w.events.closing += on_window_close
-    _minimize_to_tray = True
+        w = webview.create_window(
+            'Hermes', URL,
+            x=win_x, y=win_y,
+            width=win_w, height=win_h,
+            min_size=(800, 600), resizable=True, text_select=True,
+            hidden=True, background_color="#000000")
+        window = w
+        w.events.closing += on_window_close
+        _minimize_to_tray = True
 
-    def show_main():
-        global window
+        # 后台线程启动 WebView2（预加载页面）
+        _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
+        def _start_webview():
+            webview.start(debug=False, icon=_icon_arg)
+        _wv_thread = threading.Thread(target=_start_webview, daemon=True)
+        _wv_thread.start()
+
+        # 主线程显示 Win32 splash（2 秒品牌展示）
+        splash = Win32Splash()
+        splash.show(duration=2.0)
+        splash.close()
+
+        # splash 结束，显示 webview 窗口（页面已预加载）
         if window:
             window.show()
         if _IS_WIN:
@@ -383,16 +432,47 @@ if __name__ == '__main__':
                 for _ in range(50):
                     try:
                         if window.native and window.native.Handle:
-                            hwnd = window.native.Handle.ToInt32()
-                            _apply_dark_titlebar(hwnd)
+                            _apply_dark_titlebar(window.native.Handle.ToInt32())
                             return
-                    except Exception:
-                        pass
+                    except: pass
                     time.sleep(0.1)
             threading.Thread(target=_apply_later, daemon=True).start()
         threading.Thread(target=start_tray, daemon=True).start()
 
-    threading.Thread(target=show_main, daemon=True).start()
+        _wv_thread.join()
+        os._exit(0)
 
-    _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
-    webview.start(debug=False, icon=_icon_arg)
+    else:
+        # ═══ macOS / Linux: 简单方案 ═══
+        sw, sh = 1920, 1080
+        try:
+            import tkinter as _tk
+            _r = _tk.Tk()
+            _r.withdraw()
+            sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
+            _r.destroy()
+        except: pass
+
+        win_w, win_h = 1200, 800
+        win_x, win_y = (sw - win_w) // 2, (sh - win_h) // 2
+
+        w = webview.create_window(
+            'Hermes', URL,
+            x=win_x, y=win_y,
+            width=win_w, height=win_h,
+            min_size=(800, 600), resizable=True, text_select=True,
+            hidden=True, background_color="#000000")
+        window = w
+        w.events.closing += on_window_close
+        _minimize_to_tray = True
+
+        def show_main():
+            global window
+            if window:
+                window.show()
+            threading.Thread(target=start_tray, daemon=True).start()
+
+        threading.Thread(target=show_main, daemon=True).start()
+
+        _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
+        webview.start(debug=False, icon=_icon_arg)
