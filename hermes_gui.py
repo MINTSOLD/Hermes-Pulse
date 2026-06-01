@@ -594,11 +594,7 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # splash 在主线程跑（服务检测 + 淡出）
-    run_splash()
-
-    # splash 淡出期间 WebView2 已经在后台线程初始化了一部分
-    # 现在主线程继续创建窗口，速度会更快
+    # WebView2 初始化（主线程阻塞）
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
