@@ -171,8 +171,8 @@ def run_splash():
     )
     root.update()
 
-    # 显示 1 秒（品牌展示），不等服务
-    time.sleep(1.0)
+    # 显示 2 秒（品牌展示），不等服务
+    time.sleep(2.0)
 
     # 淡出特效（0.3秒）
     try:
