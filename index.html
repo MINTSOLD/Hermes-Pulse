@@ -6,11 +6,13 @@
   <title>Hermes</title>
   <link rel="stylesheet" href="styles.css?v=6">
   <style>
-    /* 启动画面 — 透明底，logo 跟界面重叠，淡出无缝衔接 */
+    /* 启动画面 — 透明底，logo 精确对齐界面 logo 位置 */
     #app-splash {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 99999; background: #000;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 99999; background: transparent;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      padding-top: 24px; /* 补偿 toolbar 48px 的一半，让 logo 跟界面对齐 */
       transition: opacity 0.4s ease;
     }
     #app-splash.fade-out { opacity: 0; pointer-events: none; }
