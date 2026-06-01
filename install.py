@@ -54,11 +54,15 @@ def check_python():
 def install_deps(python):
     print("\n[2/6] 安装依赖 ...")
     deps = ["pywebview", "pystray", "Pillow"]
-    subprocess.check_call(
-        [python, "-m", "pip", "install"] + deps + ["--quiet"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    ok(f"已安装: {', '.join(deps)}")
+    info(f"安装: {', '.join(deps)}")
+    try:
+        subprocess.check_call(
+            [python, "-m", "pip", "install"] + deps,
+        )
+        ok(f"已安装: {', '.join(deps)}")
+    except subprocess.CalledProcessError as e:
+        fail(f"依赖安装失败: {e}")
+        sys.exit(1)
 
 # ══════════════════════════════════════════
 #  3. 检测/安装 Hermes Agent
@@ -75,12 +79,11 @@ def check_hermes(python):
     warn("Hermes Agent 未检测到，正在安装...")
     try:
         subprocess.check_call(
-            [python, "-m", "pip", "install", "hermes-agent", "--quiet"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            [python, "-m", "pip", "install", "hermes-agent"],
         )
         ok("Hermes Agent 安装完成")
         return True
-    except:
+    except subprocess.CalledProcessError:
         fail("安装失败，请手动安装: pip install hermes-agent")
         return False
 
@@ -88,8 +91,9 @@ def check_hermes(python):
 #  4. 确定安装目录
 # ══════════════════════════════════════════
 def get_install_dir():
+    # 用用户目录，不要管理员权限
     if IS_WIN:
-        return Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Hermes Agent"
+        return Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "Programs" / "Hermes Pulse"
     elif IS_MAC:
         return Path.home() / "Library" / "Application Support" / "Hermes Pulse"
     else:
@@ -106,6 +110,7 @@ def deploy_files(install_dir):
         "hermes_gui.py", "config_server.py",
         "index.html", "styles.css", "app.js",
         "hermes-logo.png", "hermes.ico", "hermes-titlebar.ico",
+        "start_config_server.vbs",
     ]
 
     for f in files:
@@ -125,18 +130,49 @@ def create_launcher(install_dir, python):
     print("\n[5/6] 创建启动方式 ...")
 
     gui_script = install_dir / "hermes_gui.py"
+    # pythonw.exe 绝对路径（python 是 python.exe，pythonw 是无窗口版本）
+    pythonw = str(Path(python).parent / "pythonw.exe")
+    if not Path(pythonw).exists():
+        pythonw = python  # fallback
 
     if IS_WIN:
-        # VBS 启动器（隐藏窗口）
+        # VBS 启动器（绝对路径，无黑窗）— 放到安装目录
         vbs = install_dir / "Hermes.vbs"
-        vbs_content = f'Set WshShell = CreateObject("WScript.Shell")\nWshShell.Run """{python}"" ""{gui_script}""", 0, False'
+        vbs_content = f'Set WshShell = CreateObject("WScript.Shell")\nWshShell.CurrentDirectory = "{install_dir}"\nWshShell.Run """{pythonw}""" """{gui_script}""", 0, False\n'
         vbs.write_text(vbs_content, encoding="utf-8")
+        ok(f"安装目录 VBS 启动器: {vbs}")
 
-        # 桌面快捷方式
-        desktop = Path.home() / "Desktop"
-        shortcut = desktop / "Hermes Pulse.vbs"
-        shutil.copy2(vbs, shortcut)
-        ok(f"桌面快捷方式: {shortcut}")
+        # 桌面 .lnk 快捷方式（不要 UAC 弹窗）
+        desktop = Path(os.environ.get("USERPROFILE", str(Path.home()))) / "Desktop"
+        # 桌面可能在 D 盘（你机器上 D:\桌面），两个位置都建
+        desktop_candidates = [desktop]
+        # 检测 D 盘桌面（中文 Windows 常见）
+        for d in [Path("D:/桌面"), Path("D:/Desktop")]:
+            if d.exists() and d not in desktop_candidates:
+                desktop_candidates.append(d)
+
+        # .lnk 内容：用 PowerShell 的 WScript.Shell COM 创建
+        ico_path = install_dir / "hermes.ico"
+        for desk in desktop_candidates:
+            try:
+                link_target = desk / "Hermes Pulse.lnk"
+                ps_cmd = f'''
+$ws = New-Object -ComObject WScript.Shell
+$lnk = $ws.CreateShortcut('{link_target}')
+$lnk.TargetPath = '{vbs}'
+$lnk.WorkingDirectory = '{install_dir}'
+$lnk.IconLocation = '{ico_path},0'
+$lnk.WindowStyle = 7
+$lnk.Description = 'Hermes Pulse - Hermes Agent 桌面客户端'
+$lnk.Save()
+'''
+                subprocess.check_call(
+                    ["powershell", "-NoProfile", "-Command", ps_cmd],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                ok(f"桌面快捷方式: {link_target}")
+            except Exception as e:
+                warn(f"桌面快捷方式创建失败 ({desk}): {e}")
 
     elif IS_MAC:
         # .command 脚本
@@ -202,6 +238,7 @@ def main():
     print(f"\n{'=' * 50}")
     print(f"  ✓ 安装完成！")
     if IS_WIN:
+        print(f"  安装目录: {install_dir}")
         print(f"  双击桌面 'Hermes Pulse' 启动")
     elif IS_MAC:
         print(f"  双击桌面 'Hermes Pulse' 启动")

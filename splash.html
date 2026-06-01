@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  background:#000;                     /* 纯黑底 — 看得见 */
+  width:100%;height:100%;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#fff;
+}
+body{display:flex;align-items:center;justify-content:center}
+
+/* Stack: portrait (with glow) → title → subtitle → progress bar → status */
+.wrap{
+  text-align:center;width:100%;max-width:520px;padding:0 24px;
+  /* Hold splash fully visible until 2.6s, then fade out over 0.8s. */
+  animation:wrapOut 0.8s 2.6s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+@keyframes wrapOut{
+  from{opacity:1}
+  to{opacity:0}
+}
+
+/* Portrait + halo group — bigger and more dramatic */
+.portrait-wrap{
+  position:relative;
+  width:260px;height:260px;
+  margin:0 auto 44px;
+  display:flex;align-items:center;justify-content:center;
+  animation:portraitIn 1.0s cubic-bezier(0.16,1,0.3,1) both;
+}
+.portrait{
+  width:260px;height:260px;
+  object-fit:contain;
+  filter:drop-shadow(0 6px 32px rgba(212,175,55,0.22));
+  position:relative;z-index:2;
+  animation:portraitBreathe 4.5s ease-in-out infinite;
+}
+.halo{
+  position:absolute;
+  left:50%;top:50%;
+  width:340px;height:340px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(212,175,55,0.25) 0%,rgba(212,175,55,0.08) 40%,transparent 70%);
+  z-index:1;
+  animation:haloPulse 3.2s ease-in-out infinite;
+}
+.halo-ring{
+  position:absolute;
+  left:50%;top:50%;
+  width:300px;height:300px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1px solid rgba(212,175,55,0.18);
+  z-index:1;
+  animation:ringRotate 18s linear infinite;
+}
+.halo-ring::before{
+  content:"";
+  position:absolute;
+  top:-3px;left:50%;
+  width:6px;height:6px;
+  background:#d4af37;
+  border-radius:50%;
+  transform:translateX(-50%);
+  box-shadow:0 0 12px 2px rgba(212,175,55,0.6);
+}
+@keyframes portraitIn{
+  from{opacity:0;transform:translateY(28px) scale(0.88)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes portraitBreathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.025)}
+}
+@keyframes haloPulse{
+  0%,100%{opacity:0.5;transform:translate(-50%,-50%) scale(1)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+}
+@keyframes ringRotate{
+  from{transform:translate(-50%,-50%) rotate(0deg)}
+  to{transform:translate(-50%,-50%) rotate(360deg)}
+}
+
+/* Title + subtitle */
+.title{
+  color:#fff;
+  font-size:28px;
+  font-weight:200;
+  letter-spacing:10px;
+  margin-bottom:10px;
+  animation:titleIn 0.7s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.sub{
+  color:#7a7a7a;
+  font-size:12px;
+  letter-spacing:4px;
+  margin-bottom:48px;
+  animation:titleIn 0.7s 0.6s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes titleIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* Progress bar */
+.bar-track{
+  width:280px;height:1px;
+  background:rgba(212,175,55,0.18);
+  margin:0 auto 14px;
+  position:relative;overflow:hidden;
+  border-radius:1px;
+  animation:titleIn 0.6s 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+.bar-fill{
+  position:absolute;left:0;top:0;
+  height:100%;width:0%;
+  background:linear-gradient(90deg,transparent 0%,#d4af37 50%,transparent 100%);
+  animation:fillBar 2.0s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+.bar-shimmer{
+  position:absolute;top:0;left:-30%;
+  width:30%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,0.8),transparent);
+  animation:shimmer 1.6s linear infinite;
+}
+@keyframes fillBar{0%{width:0%}100%{width:100%}}
+@keyframes shimmer{0%{left:-30%}100%{left:100%}}
+
+.status{
+  color:#4a4a4a;
+  font-size:11px;
+  letter-spacing:3px;
+  min-height:16px;
+  font-family:"SF Mono","Consolas",monospace;
+  animation:statusFade 2s ease-in-out infinite, titleIn 0.6s 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes statusFade{
+  0%,100%{opacity:0.5}
+  50%{opacity:0.95}
+}
+</style></head><body>
+<div class="wrap">
+  <div class="portrait-wrap">
+    <div class="halo"></div>
+    <div class="halo-ring"></div>
+    <img class="portrait" src="hermes-logo.png" alt="Hermes">
+  </div>
+  <div class="title">HERMES</div>
+  <div class="sub">轻于形 · 智于心</div>
+  <div class="bar-track"><div class="bar-shimmer"></div><div class="bar-fill"></div></div>
+  <div class="status">正在准备</div>
+</div>
+</body></html>

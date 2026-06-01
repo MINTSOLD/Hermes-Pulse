@@ -244,6 +244,19 @@ body {
 
 .splash {
   min-height: 70vh; gap: 0; position: relative;
+  /* Welcome-screen fade-in: when the main page loads, the welcome logo +
+     tagline ease in over 0.6s. The `from` state matches the splash's
+     `wrapSettle` ending state EXACTLY (scale 0.54, opacity 0) so the
+     visual handoff is pixel-continuous: the user sees one logo at one
+     size in one position, dissolving from the splash chrome into the
+     main UI chrome.
+
+     scale 0.54 = splash's 260px logo × 0.54 = ~140px = welcome's logo size */
+  animation:welcomeIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes welcomeIn {
+  from { opacity: 0; transform: scale(0.54); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .splash-logo-wrap {
