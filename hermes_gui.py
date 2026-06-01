@@ -569,7 +569,6 @@ if __name__ == '__main__':
 
     # ── Single-instance lock (prevent duplicate windows) ──
     if not _acquire_instance_lock():
-        # 已有实例在运行，直接退出
         sys.exit(0)
 
     # Detect screen size
@@ -586,6 +585,14 @@ if __name__ == '__main__':
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
+    # 先显示 splash（后台线程），同时让 WebView2 在主线程预初始化
+    splash_done = threading.Event()
+    def _run_splash_bg():
+        run_splash()
+        splash_done.set()
+    threading.Thread(target=_run_splash_bg, daemon=True).start()
+
+    # 在主线程创建 webview 窗口并启动 — WebView2 在这里初始化
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
@@ -600,10 +607,11 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # 先立即显示窗口（不等标题栏），消除 splash → 主程序的空白间隔
+        # 等 splash 完成后再显示窗口
+        splash_done.wait(timeout=10)
         if window:
             window.show()
-        # Windows: 后台设置深色标题栏（用户已经看到窗口了）
+        # Windows: 后台设置深色标题栏
         if _IS_WIN:
             def _apply_later():
                 for _ in range(50):
@@ -620,7 +628,7 @@ if __name__ == '__main__':
 
     threading.Thread(target=show_main, daemon=True).start()
 
-    # 用 pywebview 原生 icon 参数设置图标（标题栏+任务栏都正确）
+    # 用 pywebview 原生 icon 参数设置图标
     _icon_arg = ICON_TASKBAR if os.path.exists(ICON_TASKBAR) else None
     webview.start(debug=False, icon=_icon_arg)
     os._exit(0)
