@@ -342,6 +342,16 @@ def run_splash(poll_fn=None):
     except Exception:
         pass
 
+    # 淡出特效：0.4秒内从不透明渐变到透明
+    try:
+        for i in range(8):
+            alpha = 1.0 - (i + 1) / 8.0
+            root.attributes("-alpha", max(alpha, 0.0))
+            root.update()
+            time.sleep(0.05)
+    except Exception:
+        pass
+
     logo_screen_y = y + logo_y
     try:
         root.destroy()
