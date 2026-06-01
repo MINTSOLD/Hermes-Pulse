@@ -85,39 +85,6 @@ def _get_python_command():
         return sys.executable
 
 
-def _find_hermes_command():
-    if _IS_WIN:
-        hermes_exe = os.path.join(
-            str(Path.home()), "AppData", "Local", "hermes", "hermes-agent",
-            "venv", "Scripts", "hermes.exe"
-        )
-        if os.path.exists(hermes_exe):
-            return hermes_exe
-        hermes_which = _which("hermes.exe") or _which("hermes")
-        if hermes_which:
-            return hermes_which
-        return None
-    else:
-        hermes_path = _which("hermes")
-        if hermes_path:
-            return hermes_path
-        if _IS_MAC:
-            venv_hermes = os.path.join(
-                str(Path.home()), ".local", "hermes", "hermes-agent",
-                "venv", "bin", "hermes"
-            )
-            if os.path.isfile(venv_hermes):
-                return venv_hermes
-        if _IS_LINUX:
-            venv_hermes = os.path.join(
-                str(Path.home()), ".local", "hermes", "hermes-agent",
-                "venv", "bin", "hermes"
-            )
-            if os.path.isfile(venv_hermes):
-                return venv_hermes
-        return None
-
-
 def _which(cmd):
     import shutil
     return shutil.which(cmd)
@@ -127,11 +94,6 @@ def _get_creationflags():
     if _IS_WIN:
         return 0x08000000
     return 0
-
-
-def _open_url_in_browser(url):
-    import webbrowser
-    webbrowser.open(url)
 
 
 # ══════════════════════════════════════════
@@ -151,12 +113,13 @@ def _port_alive(port, timeout=1):
 
 
 # ══════════════════════════════════════════
-#  Transparent Logo Splash Screen (tkinter)
+#  Quick Splash — 只做品牌展示，不等服务
 # ══════════════════════════════════════════
 import tkinter as tk
 
 
 def run_splash():
+    """快速 splash：显示 logo 1.5 秒后淡出，不等服务"""
     BG = "#010101"
     LOGO_SIZE = 280
 
@@ -199,94 +162,17 @@ def run_splash():
         except Exception:
             pass
 
+    # 加载文字
     text_bg_y = logo_y + LOGO_SIZE // 2 + 22
-
-    def _draw_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
-        import math
-        points = []
-        cy = (y1 + y2) / 2
-        rx = (x2 - x1) / 2
-        ry = (y2 - y1) / 2
-        cx = (x1 + x2) / 2
-        for deg in range(-90, 91, 5):
-            rad = math.radians(deg)
-            points.append(cx + rx + ry * math.cos(rad))
-            points.append(cy + ry * math.sin(rad))
-        for deg in range(90, 271, 5):
-            rad = math.radians(deg)
-            points.append(cx - rx + ry * math.cos(rad))
-            points.append(cy + ry * math.sin(rad))
-        return canvas.create_polygon(points, smooth=False, **kwargs)
-
-    _splash_font = ("Helvetica", 10)
-    if _IS_WIN:
-        _splash_font = ("Microsoft YaHei", 10)
-
+    _splash_font = ("Microsoft YaHei", 10) if _IS_WIN else ("Helvetica", 10)
     status_id = canvas.create_text(
-        W // 2, text_bg_y,
-        text="正 在 启 动 ...",
+        W // 2, text_bg_y, text="正 在 启 动 ...",
         font=_splash_font, fill="#cccccc", anchor="center"
     )
     root.update()
 
-    def _update_splash_text(text):
-        nonlocal text_bg_y
-        canvas.itemconfig(status_id, text=text)
-        root.update()
-        bbox = canvas.bbox(status_id)
-        if bbox:
-            tw = bbox[2] - bbox[0]
-            th = bbox[3] - bbox[1]
-            pad_x, pad_y = 24, 10
-            rx1 = W // 2 - tw // 2 - pad_x
-            ry1 = text_bg_y - th // 2 - pad_y
-            rx2 = W // 2 + tw // 2 + pad_x
-            ry2 = text_bg_y + th // 2 + pad_y
-            corner_r = (ry2 - ry1) // 2
-            canvas.delete("splash_bg")
-            _draw_rounded_rect(canvas, rx1, ry1, rx2, ry2, corner_r,
-                               fill="#333333", outline="", stipple="gray50",
-                               tags="splash_bg")
-            canvas.tag_lower("splash_bg", status_id)
-
-    root.update()
-
-    import socket as _sock
-    def _port_ok(port, timeout=1):
-        s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
-        s.settimeout(timeout)
-        try:
-            s.connect(("127.0.0.1", port))
-            s.close()
-            return True
-        except:
-            return False
-
-    start_time = time.time()
-    cfg_ok = False
-    gw_ok = False
-
-    # 等待服务就绪（最多 8 秒）
-    while time.time() - start_time < 8.0:
-        elapsed = time.time() - start_time
-        if not cfg_ok:
-            cfg_ok = _port_ok(18765)
-        if not gw_ok:
-            gw_ok = _port_ok(8642)
-
-        if cfg_ok and gw_ok:
-            _update_splash_text("准 备 就 绪 ✓")
-            break
-        elif cfg_ok:
-            _update_splash_text("网 关 就 绪 ✓")
-        elif elapsed > 0.5:
-            _update_splash_text("正 在 启 动 ...")
-
-        try:
-            root.update()
-        except Exception:
-            break
-        time.sleep(0.05)
+    # 显示 1.5 秒（品牌展示），不等服务
+    time.sleep(1.5)
 
     # 淡出特效
     try:
@@ -314,12 +200,10 @@ def _tray_show(icon, item):
         window.show()
         _focus_window()
 
-
 def _tray_hide(icon, item):
     global window
     if window:
         window.hide()
-
 
 def _tray_exit(icon, item):
     global _minimize_to_tray
@@ -329,7 +213,6 @@ def _tray_exit(icon, item):
     if tray_icon:
         tray_icon.stop()
     os._exit(0)
-
 
 def _focus_window():
     global window
@@ -344,7 +227,6 @@ def _focus_window():
                 user32.ShowWindow(hwnd, 9)
         except Exception:
             pass
-
 
 def start_tray():
     global tray_icon
@@ -379,8 +261,7 @@ def ensure_config_server():
         subprocess.Popen(
             [python_cmd, CONFIG_SERVER],
             creationflags=_get_creationflags(),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
     except Exception:
         pass
@@ -388,7 +269,6 @@ def ensure_config_server():
         time.sleep(1)
         if _port_alive(18765):
             return
-
 
 def ensure_gateway():
     if _port_alive(8642):
@@ -406,8 +286,7 @@ def ensure_gateway():
                     [str(pythonw), "-m", "hermes_cli.main", "gateway", "run"],
                     cwd=str(hermes_dir),
                     creationflags=0x08000000,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )
             except Exception:
                 pass
@@ -459,15 +338,17 @@ def on_window_close():
 # ══════════════════════════════════════════
 
 if __name__ == '__main__':
-    # Start background services
+    # 后台启动服务
     threading.Thread(target=ensure_config_server, daemon=True).start()
     threading.Thread(target=ensure_gateway, daemon=True).start()
 
-    # ── Single-instance lock ──
     if not _acquire_instance_lock():
         sys.exit(0)
 
-    # Detect screen size
+    # 快速 splash（1.5秒品牌展示 + 淡出）
+    run_splash()
+
+    # splash 结束时服务已在后台启动，直接创建窗口
     sw, sh = 1920, 1080
     if _IS_WIN:
         try:
@@ -476,24 +357,11 @@ if __name__ == '__main__':
             sh = user32.GetSystemMetrics(1)
         except Exception:
             pass
-    else:
-        try:
-            import tkinter as _tk
-            _r = _tk.Tk()
-            _r.withdraw()
-            sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
-            _r.destroy()
-        except Exception:
-            pass
 
     win_w, win_h = 1200, 800
     win_x = (sw - win_w) // 2
     win_y = (sh - win_h) // 2
 
-    # 先启动 splash（主线程），同时服务在后台线程启动
-    run_splash()
-
-    # splash 结束后，创建窗口并启动 WebView2
     w = webview.create_window(
         'Hermes', URL,
         x=win_x, y=win_y,
