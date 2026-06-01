@@ -600,19 +600,22 @@ if __name__ == '__main__':
 
     def show_main():
         global window
-        # Windows: 等待 pywebview 窗口创建完成后设置深色标题栏
-        if _IS_WIN:
-            for _ in range(50):  # 最多等 5 秒
-                try:
-                    if window.native and window.native.Handle:
-                        hwnd = window.native.Handle.ToInt32()
-                        _apply_dark_titlebar(hwnd)
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.1)
+        # 先立即显示窗口（不等标题栏），消除 splash → 主程序的空白间隔
         if window:
             window.show()
+        # Windows: 后台设置深色标题栏（用户已经看到窗口了）
+        if _IS_WIN:
+            def _apply_later():
+                for _ in range(50):
+                    try:
+                        if window.native and window.native.Handle:
+                            hwnd = window.native.Handle.ToInt32()
+                            _apply_dark_titlebar(hwnd)
+                            return
+                    except Exception:
+                        pass
+                    time.sleep(0.1)
+            threading.Thread(target=_apply_later, daemon=True).start()
         threading.Thread(target=start_tray, daemon=True).start()
 
     threading.Thread(target=show_main, daemon=True).start()
