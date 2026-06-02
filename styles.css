@@ -282,7 +282,7 @@ body {
 
 .messages { max-width: 1000px; margin: 0 auto; padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
 
-.welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin-top: -20px; }
+.welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: auto 0; padding: 40px 20px; min-height: 60vh; }
 .welcome-screen h1 { font-size: 24px; font-weight: 500; margin-bottom: 12px; color: var(--text-muted); }
 .welcome-screen p { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; opacity: 0.6; }
 .welcome-tips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 400px; }
@@ -389,18 +389,27 @@ body {
 }
 .tip-card:hover { border-color: rgba(255,255,255,0.12); background: var(--bg-hover); color: var(--text-primary); }
 
-.message { display: flex; padding: 8px 24px; gap: 12px; animation: fadeIn 0.2s ease; user-select: text; }
+.message { display: flex !important; width: 100% !important; padding: 10px 24px; gap: 12px; animation: fadeIn 0.2s ease; user-select: text; box-sizing: border-box; align-items: flex-start; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 用户消息 — 右对齐，简约尊贵，呼吸灯光 */
-.message-user { justify-content: flex-end; }
+/* 用户消息 — 右对齐
+   注意：.messages 是 flex column，
+   1) justify-content 在 column 里控制垂直，所以用 margin-left: auto 让整个 message-user 推到右边
+   2) .message-user 内部 bubble 用 max-width 65% 限制宽度
+   3) bubble 不设固定 width，让它由内容自然撑开（但不超过 max-width）
+*/
+.message-user { margin-left: auto !important; max-width: 75%; min-width: 120px; justify-content: flex-end; }
 .message-user .message-bubble {
-  max-width: 65%;
+  max-width: 100%;
+  min-width: 0;
+  width: fit-content;
   background: transparent;
   border: none;
   border-radius: 0;
   padding: 14px 20px;
   position: relative;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 /* 上方呼吸光线 */
 .message-user .message-bubble::before {
@@ -428,7 +437,7 @@ body {
 }
 
 /* AI 消息 — 左对齐，带头像 */
-.message-assistant { justify-content: flex-start; align-items: flex-start; }
+.message-assistant { justify-content: flex-start; align-items: flex-start; margin-top: 8px; }
 .message-assistant .avatar {
   width: 64px; height: 64px; border-radius: 50%;
   overflow: hidden; flex-shrink: 0;
@@ -546,11 +555,11 @@ body {
 .input-container { max-width: 700px; margin: 0 auto; position: relative; }
 
 .token-bar {
-  display: inline-flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
   padding: 0 14px; height: 18px; font-size: 11px;
   color: var(--text-muted); opacity: 0; transition: opacity 0.3s ease;
-  pointer-events: none; position: absolute; top: -20px;
-  left: 50%; transform: translateX(-50%); white-space: nowrap;
+  pointer-events: none; margin: 0 auto 6px; white-space: nowrap;
+  max-width: 700px;
 }
 .token-bar.visible { opacity: 1; }
 .token-item { display: inline-flex; align-items: center; gap: 4px; }
