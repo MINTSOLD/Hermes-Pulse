@@ -1371,6 +1371,7 @@ async function loadSessionById(id) {
         const messagesEl = document.getElementById('messages');
         if (messagesEl) {
           messagesEl.innerHTML = '';
+          messagesEl.classList.add('has-messages');
           data.forEach(msg => {
             if (msg.role === 'user' || msg.role === 'assistant') {
               const cls = msg.role === 'user' ? 'message-user' : 'message-assistant';
@@ -1945,6 +1946,8 @@ function sendMessage() {
   const chatAreaEl = document.getElementById('chat-area');
   // 清掉所有残留的 welcome screen（index.html 静态 + JS 渲染各一个，ID 重复）
   document.querySelectorAll('#welcome-screen').forEach(el => el.remove());
+  // 切换为有消息布局（顶部对齐，不再居中）
+  messagesEl.classList.add('has-messages');
   // 用户发消息时强制开启跟滚，确保新内容第一时间可见
   state.autoScroll = true;
   messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user" style="align-self:flex-end;max-width:75%;justify-content:flex-end"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
