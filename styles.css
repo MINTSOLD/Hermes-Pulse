@@ -389,7 +389,7 @@ body {
 }
 .tip-card:hover { border-color: rgba(255,255,255,0.12); background: var(--bg-hover); color: var(--text-primary); }
 
-.message { display: flex !important; width: 100% !important; padding: 10px 24px; gap: 12px; animation: fadeIn 0.2s ease; user-select: text; box-sizing: border-box; align-items: flex-start; }
+.message { display: flex !important; padding: 10px 24px; gap: 12px; animation: fadeIn 0.2s ease; user-select: text; box-sizing: border-box; align-items: flex-start; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 用户消息 — 右对齐
@@ -398,7 +398,7 @@ body {
    2) .message-user 内部 bubble 用 max-width 65% 限制宽度
    3) bubble 不设固定 width，让它由内容自然撑开（但不超过 max-width）
 */
-.message-user { margin-left: auto !important; max-width: 75%; min-width: 120px; justify-content: flex-end; }
+.message-user { align-self: flex-end; max-width: 75%; min-width: 120px; justify-content: flex-end; }
 .message-user .message-bubble {
   max-width: 100%;
   min-width: 0;
