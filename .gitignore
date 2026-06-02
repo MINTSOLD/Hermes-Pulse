@@ -7,3 +7,12 @@ config.yaml
 node_modules/
 .DS_Store
 Thumbs.db
+
+# PyInstaller artifacts — 不上传，由本地 build 产生
+build/
+dist/
+*.spec.bak
+
+# 测试文件
+test-*.html
+test-simulate.html

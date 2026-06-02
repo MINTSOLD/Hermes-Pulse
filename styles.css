@@ -83,6 +83,20 @@ body {
 
 .toolbar-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 4px; }
 
+/* 头总的签名：淡淡的灰金色，悬浮时变亮 */
+.toolbar-brand {
+  font-size: 10px;
+  color: rgba(212, 175, 55, 0.28);  /* 金色但很淡 */
+  letter-spacing: 0.3px;
+  font-weight: 300;
+  user-select: none;
+  white-space: nowrap;
+  padding: 0 8px 0 4px;
+  transition: color 0.2s;
+  font-family: "Cascadia Code", "Fira Code", -apple-system, "Microsoft YaHei", sans-serif;
+}
+.toolbar-brand:hover { color: rgba(212, 175, 55, 0.55); }
+
 /* ============================================
    Unified icon button size (14×14) — all toolbar SVGs match
    ============================================ */
@@ -105,10 +119,11 @@ body {
 .model-selector {
   display: flex; align-items: center; gap: 0; padding: 4px 6px;
   border-radius: 6px; cursor: pointer; font-size: 13px;
-  color: var(--text-secondary); transition: background 0.15s, color 0.15s;
+  color: var(--text-secondary); transition: background 0.15s;
   position: relative;       /* anchor for hover tooltip */
 }
-.model-selector:hover { background: var(--bg-hover); color: var(--text-primary); color: #d4af37; }
+.model-selector:hover { background: var(--bg-hover); }
+.model-selector:hover .model-icon svg { color: #d4af37; }
 .model-icon {
   width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -146,11 +161,13 @@ body {
 .agent-selector {
   display: flex; align-items: center; gap: 0; padding: 4px 6px;
   border-radius: 6px; cursor: pointer; font-size: 13px;
-  color: var(--text-secondary); transition: background 0.15s, color 0.15s;
+  color: var(--text-secondary); transition: background 0.15s;
+  position: relative;
   min-width: 0; max-width: none;
   position: relative;       /* anchor for #agent-dropdown */
 }
-.agent-selector:hover { background: var(--bg-hover); color: var(--text-primary); color: #d4af37; }
+.agent-selector:hover { background: var(--bg-hover); }
+.agent-selector:hover .agent-icon-svg { color: #d4af37; }
 .agent-icon {
   width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -267,6 +284,15 @@ body {
 .history-item-name {
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.history-item-delete {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: all 0.15s;
+}
+.history-item:hover .history-item-delete { opacity: 0.7; }
+.history-item-delete:hover { opacity: 1 !important; background: rgba(220, 38, 38, 0.15); color: #fca5a5; }
 .history-item-count {
   color: var(--text-muted); font-size: 11px; flex-shrink: 0;
   background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 8px;
@@ -276,12 +302,14 @@ body {
    对话区
    ============================================ */
 
-#chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+#chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; }
 #chat-area::-webkit-scrollbar { width: 6px; }
 #chat-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
-.messages { max-width: 1000px; margin: 0 auto; padding: 20px 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.messages { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px 24px; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; align-self: center; }
 .messages.has-messages { justify-content: flex-start; }
+/* 兜底：用 !important 覆盖任何 inline style 残留的 center */
+.messages { justify-content: flex-start !important; }
 
 .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: auto 0; padding: 40px 20px; min-height: 70vh; }
 .welcome-screen h1 { font-size: 24px; font-weight: 500; margin-bottom: 12px; color: var(--text-muted); }
@@ -566,6 +594,7 @@ body {
 .token-item { display: inline-flex; align-items: center; gap: 4px; }
 .token-label { color: var(--text-muted); font-size: 10px; }
 .token-value { color: var(--text-secondary); font-family: "Cascadia Code", "Fira Code", monospace; font-size: 11px; }
+#token-bar-model, #token-bar-agent { max-width: 110px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .token-sep { color: rgba(255,255,255,0.1); font-size: 10px; }
 .token-compress { font-size: 10px; color: rgba(255,200,100,0.7); margin-left: 4px; }
 

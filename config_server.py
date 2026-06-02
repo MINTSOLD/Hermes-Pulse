@@ -225,8 +225,8 @@ def build_response():
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def _json_response(self, data):
         self.send_response(200)
@@ -873,6 +873,25 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             self._cors()
             self.end_headers()
 
+    def do_DELETE(self):
+        # DELETE 预检 (CORS)
+        if self.path == "/" or self.path == "":
+            self.send_response(200)
+            self._cors()
+            self.end_headers()
+            return
+        # 代理到 Gateway（/gateway/... 前缀）
+        if self.path.startswith("/gateway/"):
+            real_path = self.path[len("/gateway"):]
+            auth = self.headers.get("Authorization", "")
+            self._proxy_to_gateway(real_path, method="DELETE",
+                                   headers={"Authorization": auth} if auth else None)
+            return
+        # 其它路径 404
+        self.send_response(404)
+        self._cors()
+        self.end_headers()
+
     def _proxy_to_gateway(self, path, method="GET", body=None, headers=None):
         """代理请求到 Gateway API 服务器"""
         gateway_url = f"http://127.0.0.1:8642{path}"
@@ -883,6 +902,8 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
             if method == "POST":
                 data = json.dumps(body).encode("utf-8") if body else b""
                 req = urllib.request.Request(gateway_url, data=data, headers=req_headers, method="POST")
+            elif method == "DELETE":
+                req = urllib.request.Request(gateway_url, headers=req_headers, method="DELETE")
             else:
                 req = urllib.request.Request(gateway_url, headers=req_headers)
 

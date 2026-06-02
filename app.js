@@ -72,6 +72,20 @@ function updateAgentSelector() {
   // Also update the hover tooltip label (the toolbar is now icon-only).
   const tipEl = document.getElementById('current-agent-name-tooltip');
   if (tipEl) tipEl.textContent = getProfileLabel(currentProfile);
+  // 同步到 token-bar
+  const barEl = document.getElementById('token-bar-agent');
+  if (barEl) barEl.textContent = getProfileLabel(currentProfile);
+}
+
+function updateTokenBarModel() {
+  const barEl = document.getElementById('token-bar-model');
+  if (!barEl) return;
+  // 优先用 state.currentModelName，其次用 state.currentModel
+  const name = state.currentModelName || state.currentModel || '未选择';
+  barEl.textContent = name;
+  // 也同步 tooltip
+  const tipEl = document.getElementById('current-model-name-tooltip');
+  if (tipEl) tipEl.textContent = name;
 }
 
 function toggleAgentDropdown(e) {
@@ -277,6 +291,15 @@ function getModelName(id) { return (window.ALL_MODELS || []).find(m => m.id === 
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // 终极兜底：启动时直接用 inline style 强制消息容器从顶部开始
+  // 不依赖 CSS 缓存、不依赖 !important、不依赖 WebView2 是否重新加载 CSS
+  const messagesEl = document.getElementById('messages');
+  if (messagesEl) {
+    messagesEl.style.justifyContent = 'flex-start';
+    messagesEl.style.alignItems = 'stretch';
+    messagesEl.style.display = 'flex';
+    messagesEl.style.flexDirection = 'column';
+  }
   initEventListeners();
   // 启动时自动连接
   await discoverGateway();
@@ -643,10 +666,12 @@ document.addEventListener('mouseout', e => {
 
 function loadModels() {
   state.currentModel = CACHED_DEFAULT_MODEL;
+  state.currentModelName = getModelName(CACHED_DEFAULT_MODEL);
   // Toolbar model-name-tooltip is the new home for the model name.
   const nameEl = document.querySelector('.model-name-tooltip') ||
                  document.querySelector('.model-name');
   if (nameEl) nameEl.textContent = getModelName(CACHED_DEFAULT_MODEL);
+  updateTokenBarModel();
   updateTokenBar();
 }
 
@@ -823,10 +848,13 @@ async function applyModelChange(id, name) {
 
   // 立刻更新界面（不等待 Gateway 重启）
   state.currentModel = id;
+  state.currentModelName = name || id;
   // Toolbar shows the active model in the hover tooltip (icon-only mode).
   const tipEl = document.querySelector('.model-name-tooltip') ||
                 document.querySelector('.model-name');
   if (tipEl) tipEl.textContent = name || id;
+  // 同步到 token-bar
+  updateTokenBarModel();
   CACHED_DEFAULT_MODEL = id;
   currentTab().sessionId = 'gui-session-' + Date.now().toString(36);
   closeModal('model-modal');
@@ -1326,8 +1354,9 @@ async function loadSessions() {
     if (state.gatewayApiKey) headers['Authorization'] = `Bearer ${state.gatewayApiKey}`;
     const r = await fetch(`${API_BASE}/api/sessions`, { headers, signal: AbortSignal.timeout(5000) });
     if (r.ok) {
-      const data = await r.json();
-      state.sessions = Array.isArray(data) ? data : (data.sessions || []);
+      const raw = await r.json();
+      // Gateway 返回 {"object": "list", "data": [...]}
+      state.sessions = Array.isArray(raw) ? raw : (raw.data || raw.sessions || []);
     }
   } catch {}
   renderSessions();
@@ -1363,8 +1392,10 @@ async function loadSessionById(id) {
     if (state.gatewayApiKey) headers['Authorization'] = `Bearer ${state.gatewayApiKey}`;
     const r = await fetch(`${API_BASE}/api/sessions/${id}/messages`, { headers, signal: AbortSignal.timeout(5000) });
     if (r.ok) {
-      const data = await r.json();
-      if (Array.isArray(data)) {
+      const raw = await r.json();
+      // Gateway 返回 {object, session_id, data: [...]}；少数情况可能直接是数组
+      const data = Array.isArray(raw) ? raw : (raw.data || []);
+      if (Array.isArray(data) && data.length > 0) {
         state.chatHistory = data;
         newTab.chatHistory = data;
         // 渲染历史消息
@@ -1376,9 +1407,10 @@ async function loadSessionById(id) {
             if (msg.role === 'user' || msg.role === 'assistant') {
               const cls = msg.role === 'user' ? 'message-user' : 'message-assistant';
               const avatar = msg.role === 'assistant' ? '<div class="avatar"><img src="hermes-logo.png" alt="Hermes"></div>' : '';
-              const inlineStyle = msg.role === 'user' ? ' style="align-self:flex-end;max-width:75%;justify-content:flex-end"' : '';
+              const inlineStyle = msg.role === 'user' ? ' style="align-self:flex-end !important;max-width:75%;justify-content:flex-end;width:auto"' : '';
+              const content = (msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
               messagesEl.insertAdjacentHTML('beforeend',
-                `<div class="message ${cls}"${inlineStyle}>${avatar}<div class="message-bubble"><div class="message-content">${msg.content || ''}</div></div></div>`
+                `<div class="message ${cls}"${inlineStyle}>${avatar}<div class="message-bubble"><div class="message-content">${content}</div></div></div>`
               );
             }
           });
@@ -1399,14 +1431,25 @@ async function loadSessionById(id) {
 }
 
 async function deleteSession(id) {
+  if (!confirm('确定要删除这个会话吗？此操作会同时删除服务端记录。')) return;
   try {
     const delHeaders = {};
     if (state.gatewayApiKey) delHeaders['Authorization'] = `Bearer ${state.gatewayApiKey}`;
-    await fetch(`${API_BASE}/api/sessions/${id}`, { method: 'DELETE', headers: delHeaders });
-    state.sessions = state.sessions.filter(s => s.id !== id);
+    // 调用 Gateway API（与控制台共用同一个 endpoint）
+    const r = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', headers: delHeaders });
+    if (!r.ok) {
+      showToast(`删除失败 (HTTP ${r.status})`);
+      return;
+    }
+    // 同时从本地 state.sessions 移除（兼容 id 和 session_id 字段）
+    state.sessions = state.sessions.filter(s => (s.id || s.session_id) !== id);
     if (state.currentSession === id) state.currentSession = null;
-    renderSessions();
-  } catch {}
+    // 重新拉取（确保跟 Gateway 一致）
+    await loadSessions();
+    showToast('已删除会话');
+  } catch (e) {
+    showToast('删除失败: ' + e.message);
+  }
 }
 
 function newChat() {
@@ -1573,16 +1616,20 @@ function updateHistoryDropdown() {
     dropdown.innerHTML = '<div class="history-empty">暂无历史会话</div>';
     return;
   }
-
+  // 转义 id/title 防止单引号/反斜杠注入 onclick
+  const escId = (s) => String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const escName = (s) => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
   dropdown.innerHTML = allSessions.map((s, i) => {
     const isActive = s.source === 'tab' && s.index === currentTabIndex;
     const active = isActive ? ' active' : '';
     const clickAction = s.source === 'tab'
       ? `switchTab(${s.index}); closeHistoryDropdown();`
-      : `loadSessionById('${s.id}'); closeHistoryDropdown();`;
+      : `loadSessionById('${escId(s.id)}'); closeHistoryDropdown();`;
+    const deleteAction = `event.stopPropagation(); deleteSession('${escId(s.id)}'); event.preventDefault();`;
     return `<div class="history-item${active}" onclick="${clickAction}">
       <span class="history-item-icon">💬</span>
-      <span class="history-item-name">${s.name}</span>
+      <span class="history-item-name">${escName(s.name)}</span>
+      <button class="history-item-delete" onclick="${deleteAction}" title="删除会话">×</button>
     </div>`;
   }).join('');
 }
@@ -1950,7 +1997,7 @@ function sendMessage() {
   messagesEl.classList.add('has-messages');
   // 用户发消息时强制开启跟滚，确保新内容第一时间可见
   state.autoScroll = true;
-  messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user" style="align-self:flex-end;max-width:75%;justify-content:flex-end"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
+  messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user" style="align-self:flex-end !important;max-width:75%;justify-content:flex-end;width:auto"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
   // 自动命名标签页：第一条消息时，用消息内容前15个字作为标签名
   const tab = currentTab();
   if (state.chatHistory.length === 0 && tab.name === '新对话') {

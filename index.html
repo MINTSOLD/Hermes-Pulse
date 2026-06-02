@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hermes</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body style="background:#000;margin:0;">
   <div id="app">
@@ -42,6 +42,8 @@
             </button>
           </div>
           <div class="toolbar-right">
+            <!-- 头总的签名（视觉上在系统最小化按钮的左边） -->
+            <span class="toolbar-brand">POWER BY  MINTSOLD·薄荷老头</span>
             <!-- 连接状态：旋转按钮→文字→呼吸灯 -->
             <div id="connection-status" class="status-indicator offline" style="position:relative;">
               <button id="btn-reconnect" class="btn-reconnect" title="刷新连接">
@@ -134,6 +136,16 @@
             </div>
             <!-- Token 信息 -->
             <div id="token-bar" class="token-bar">
+              <span class="token-item token-model" title="当前模型">
+                <span class="token-label">模型</span>
+                <span id="token-bar-model" class="token-value">--</span>
+              </span>
+              <span class="token-sep">·</span>
+              <span class="token-item token-agent" title="当前 Agent">
+                <span class="token-label">Agent</span>
+                <span id="token-bar-agent" class="token-value">--</span>
+              </span>
+              <span class="token-sep">·</span>
               <span class="token-item">
                 <span class="token-label">上下文</span>
                 <span id="token-context" class="token-value">0/--</span>
@@ -165,6 +177,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

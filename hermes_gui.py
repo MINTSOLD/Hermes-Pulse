@@ -81,8 +81,13 @@ def _acquire_instance_lock():
         h = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
         err = kernel32.GetLastError()
         if err == 183:
+            # Mutex 已被占用 — 区分两种情况：
+            # A) 同一进程（重复锁，正常） → 释放并继续
+            # B) 别的进程还活着 → 唤起它的窗口
+            # C) 别的进程已死（pid 文件残留）→ 强杀残留 PID，强制接管
             alive = False
             my_pid = os.getpid()
+            stale_pids = []
             try:
                 if os.path.exists(pid_file):
                     with open(pid_file, "r") as f:
@@ -90,32 +95,72 @@ def _acquire_instance_lock():
                     if old_pid == my_pid:
                         alive = True
                     else:
+                        # 严格检查：OpenProcess 成功表示进程存在
                         PROCESS_QUERY_LIMITED = 0x1000
                         ph = kernel32.OpenProcess(PROCESS_QUERY_LIMITED, False, old_pid)
                         if ph:
                             kernel32.CloseHandle(ph)
                             alive = True
+                        else:
+                            # 进程已死，标记为残留
+                            stale_pids.append(old_pid)
             except Exception:
                 pass
 
+            # 兜底：除了 pid_file 里的 PID，再扫一遍所有 HermesPulse.exe
+            # 如果有同名的 exe 进程但 pid 文件没记录，强制接管
             if not alive:
+                try:
+                    import subprocess
+                    out = subprocess.run(
+                        ['tasklist', '/FI', 'IMAGENAME eq HermesPulse.exe', '/FO', 'CSV', '/NH'],
+                        capture_output=True, text=True, timeout=3
+                    ).stdout
+                    # CSV 第一列是 "HermesPulse.exe"，第二列是 PID
+                    import re as _re
+                    found = _re.findall(r'"HermesPulse\.exe","(\d+)"', out)
+                    for fp in found:
+                        fp = int(fp)
+                        if fp != my_pid:
+                            stale_pids.append(fp)
+                except Exception:
+                    pass
+
+            if stale_pids:
+                # 强杀残留进程，释放 mutex
+                for sp in stale_pids:
+                    try:
+                        kernel32.TerminateProcess(
+                            kernel32.OpenProcess(1, False, sp), 0
+                        )
+                    except Exception:
+                        pass
+                time.sleep(0.3)
                 try:
                     kernel32.CloseHandle(h)
                 except Exception:
                     pass
-                time.sleep(0.3)
                 h = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
+                # 不管这次拿没拿到，删 pid 文件
+                try:
+                    if os.path.exists(pid_file):
+                        os.remove(pid_file)
+                except Exception:
+                    pass
                 if kernel32.GetLastError() == 183:
+                    # 真的拿不到 mutex — 启动失败
                     return False
+                # 拿到 mutex，写入新 pid
                 try:
                     with open(pid_file, "w") as f:
-                        f.write(str(os.getpid()))
+                        f.write(str(my_pid))
                 except Exception:
                     pass
                 return True
-            else:
+
+            if alive:
+                # 同进程或别的真活着 → 唤起窗口并拒绝启动
                 try:
-                    user32 = ctypes.windll.user32
                     hwnd = user32.FindWindowW(None, "Hermes")
                     if hwnd:
                         user32.ShowWindow(hwnd, 9)
@@ -123,6 +168,22 @@ def _acquire_instance_lock():
                 except Exception:
                     pass
                 return False
+
+            # 既没有 stale 也没有 alive（不太可能走到这里）
+            try:
+                kernel32.CloseHandle(h)
+            except Exception:
+                pass
+            time.sleep(0.3)
+            h = kernel32.CreateMutexW(None, True, "HermesPulse_SingleInstance")
+            if kernel32.GetLastError() == 183:
+                return False
+            try:
+                with open(pid_file, "w") as f:
+                    f.write(str(os.getpid()))
+            except Exception:
+                pass
+            return True
 
         try:
             with open(pid_file, "w") as f:
@@ -300,7 +361,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
 .wrap{
   text-align:center;width:100%;max-width:520px;padding:0 24px;
   position:relative;z-index:2;
-  animation:wrapOut 0.8s 2.4s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation:wrapOut 0.5s 1.0s cubic-bezier(0.4,0,0.2,1) forwards;
 }
 @keyframes wrapOut{
   0%   {opacity:1;transform:scale(1);filter:blur(0px)}
@@ -414,8 +475,8 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
 .tech-cross::after{width:100%;height:1px;top:50%;transform:translateY(-50%);}
 @keyframes techSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 @keyframes crossSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-/* Stage 1: full "loading" UI — visible at t=0, fades out at t=2.5s */
-.splash-loading { animation: stage1Out 0.6s 2.5s ease forwards; }
+/* Stage 1: full "loading" UI — visible at t=0, fades out at t=1.1s */
+.splash-loading { animation: stage1Out 0.5s 1.1s ease forwards; }
 @keyframes stage1Out {
   0%   { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.08); filter: blur(4px); }
@@ -431,7 +492,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   opacity: 0; transform: scale(0.96);
-  animation: stage2In 0.8s 2.7s cubic-bezier(0.16,1,0.3,1) forwards;
+  animation: stage2In 0.5s 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
 }
 @keyframes stage2In {
   0%   { opacity: 0; transform: scale(0.96); filter: blur(8px); }
@@ -442,7 +503,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   flex-shrink: 0; height: 48px;
   background: linear-gradient(180deg, #0a0a0a 0%, #000 100%);
   border-bottom: 1px solid rgba(255,255,255,0.06);
-  opacity: 0; animation: mockChromeIn 0.5s 2.9s ease forwards;
+  opacity: 0; animation: mockChromeIn 0.3s 1.5s ease forwards;
 }
 .splash-mock-center {
   flex: 1; display: flex; flex-direction: column;
@@ -453,7 +514,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   flex-shrink: 0; height: 100px;
   background: linear-gradient(0deg, #0a0a0a 0%, #000 100%);
   border-top: 1px solid rgba(255,255,255,0.06);
-  opacity: 0; animation: mockChromeIn 0.5s 2.9s ease forwards;
+  opacity: 0; animation: mockChromeIn 0.3s 1.5s ease forwards;
 }
 @keyframes mockChromeIn { to { opacity: 1; } }
 .splash-mock-logo { width: 140px; height: 140px; object-fit: contain;
@@ -466,6 +527,16 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
 .splash-mock h1 { color: var(--text-muted); font-size: 24px; font-weight: 500; margin-top: 24px; margin-bottom: 8px; letter-spacing: 0.5px; }
 .splash-mock-tag { color: var(--text-muted); font-size: 14px; opacity: 0.6; margin-bottom: 32px; letter-spacing: 4px; }
 .splash-mock-status { color: var(--text-muted); font-size: 12px; opacity: 0.5; }
+.splash-mock-brand {
+  margin-top: 48px;
+  color: rgba(212, 175, 55, 0.4);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  font-weight: 300;
+  font-family: "Cascadia Code", "Fira Code", -apple-system, "Microsoft YaHei", sans-serif;
+  user-select: none;
+  opacity: 0; animation: mockChromeIn 0.6s 1.6s ease forwards;
+}
 
 /* Title with typewriter reveal + glitch */
 .title{
@@ -562,14 +633,14 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   position:absolute;left:0;top:0;
   height:100%;width:0%;
   background:linear-gradient(90deg,transparent 0%,#d4af37 50%,transparent 100%);
-  animation:fillBar 2.0s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation:fillBar 1.0s cubic-bezier(0.4,0,0.2,1) forwards;
   box-shadow:0 0 8px rgba(212,175,55,0.6);
 }
 .bar-shimmer{
   position:absolute;top:0;left:-30%;
   width:30%;height:100%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);
-  animation:shimmer 1.6s linear infinite;
+  animation:shimmer 0.8s linear infinite;
 }
 @keyframes fillBar{0%{width:0%}100%{width:100%}}
 @keyframes shimmer{0%{left:-30%}100%{left:100%}}
@@ -640,21 +711,10 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   50%{opacity:0.95}
 }
 </style></head><body>
-<div class="hex-grid"></div>
-<div class="scanline"></div>
-<div class="crt-lines"></div>
+<!-- 优化：splash 背景砍掉重 CSS 动画（hex-grid + scanline + crt-lines + 8 particles）
+     这些动画 GPU 渲染开销大，WebView2 启动慢。保留中央 logo + progress bar 即可。 -->
 <div class="vignette"></div>
-<div class="particles">
-  <div class="particle" style="left:10%;animation-duration:8s;animation-delay:0s;"></div>
-  <div class="particle" style="left:25%;animation-duration:12s;animation-delay:1s;"></div>
-  <div class="particle" style="left:45%;animation-duration:9s;animation-delay:2s;"></div>
-  <div class="particle" style="left:65%;animation-duration:11s;animation-delay:0.5s;"></div>
-  <div class="particle" style="left:80%;animation-duration:7s;animation-delay:3s;"></div>
-  <div class="particle" style="left:90%;animation-duration:10s;animation-delay:1.5s;"></div>
-  <div class="particle" style="left:35%;animation-duration:13s;animation-delay:2.5s;"></div>
-  <div class="particle" style="left:55%;animation-duration:8.5s;animation-delay:0.8s;"></div>
-</div>
-<!-- Stage 1: full sci-fi startup UI. Fades out at 2.4s. -->
+<!-- Stage 1: full sci-fi startup UI. Fades out at 1.4s. -->
 <div class="splash-loading">
 <div class="splash-center-fix">
 <div class="wrap">
@@ -698,6 +758,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
     <h1>Hermes</h1>
     <div class="splash-mock-tag">轻于形 · 智于心</div>
     <div class="splash-mock-status">选择模型 · 开始对话</div>
+    <div class="splash-mock-brand">POWER BY  MINTSOLD·薄荷老头</div>
   </div>
   <div class="splash-mock-input"></div>
 </div>
@@ -942,10 +1003,12 @@ if __name__ == '__main__':
         t0 = time.time()
         cs_ready_at = None
         gw_ready_at = None
-        _splash_min_ms = 4500   # splash 跑 stage1 (2.5s) + stage2 mock (1.8s) + 缓冲 0.2s = 4.5s 后才切真主页
+        # 优化：splash 最小显示时间 2.2s（够看清两阶段 logo + 品牌）
+        # 阶段 1 (1.0s) + 阶段 2 mock (1.0s) + 缓冲 0.2s = 2.2s
+        _splash_min_ms = 2200
 
-        # Poll services for up to 12s
-        for i in range(120):
+        # Poll services for up to 4s (was 12s — services normally up in 0.5s)
+        for i in range(40):
             cs_ok = _port_alive(18765)
             gw_ok = _port_alive(8642)
             elapsed_ms = int((time.time() - t0) * 1000)
@@ -958,10 +1021,10 @@ if __name__ == '__main__':
             if (cs_ready_at is not None and gw_ready_at is not None
                     and elapsed_ms >= _splash_min_ms):
                 break
-            # Timeout safety: 12s hard cap (give up and just go)
-            if elapsed_ms > 12000:
+            # Timeout safety: 4s hard cap (give up and just go)
+            if elapsed_ms > 4000:
                 break
-            time.sleep(0.1)
+            time.sleep(0.05)
 
         # The splash has its own CSS-driven fade-out at 2.0s (splash_internal
         # `.wrap` animation: opacity 1 → 0 over 0.6s). By the time we call
