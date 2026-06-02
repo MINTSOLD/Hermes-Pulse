@@ -780,7 +780,14 @@ function toggleGroup(h) {
 }
 
 async function selectModel(id, name) {
-  if (id === state.currentModel) { showModelActionDialog(id, name); return; }
+  if (id === state.currentModel) {
+    // Clicking the already-active model is a no-op — just close the modal.
+    // (Previous design popped a "keep / replace / clear" dialog here, which
+    // was a confusing 2-click flow. The toolbar already shows which model
+    // is in use, so a redundant confirm is pure friction.)
+    closeModal('model-modal');
+    return;
+  }
   await applyModelChange(id, name);
 }
 
@@ -816,7 +823,10 @@ async function applyModelChange(id, name) {
 
   // 立刻更新界面（不等待 Gateway 重启）
   state.currentModel = id;
-  document.querySelector('.model-name').textContent = name || id;
+  // Toolbar shows the active model in the hover tooltip (icon-only mode).
+  const tipEl = document.querySelector('.model-name-tooltip') ||
+                document.querySelector('.model-name');
+  if (tipEl) tipEl.textContent = name || id;
   CACHED_DEFAULT_MODEL = id;
   currentTab().sessionId = 'gui-session-' + Date.now().toString(36);
   closeModal('model-modal');
@@ -1242,7 +1252,9 @@ function pollQrStatus(platformId) {
 
 function clearModelSelection() {
   state.currentModel = CACHED_DEFAULT_MODEL;
-  document.querySelector('.model-name').textContent = getModelName(CACHED_DEFAULT_MODEL);
+  const tipEl = document.querySelector('.model-name-tooltip') ||
+                document.querySelector('.model-name');
+  if (tipEl) tipEl.textContent = getModelName(CACHED_DEFAULT_MODEL);
   closeModal('model-modal');
   showToast('已恢复默认模型');
   updateTokenBar();
@@ -1363,8 +1375,9 @@ async function loadSessionById(id) {
             if (msg.role === 'user' || msg.role === 'assistant') {
               const cls = msg.role === 'user' ? 'message-user' : 'message-assistant';
               const avatar = msg.role === 'assistant' ? '<div class="avatar"><img src="hermes-logo.png" alt="Hermes"></div>' : '';
+              const inlineStyle = msg.role === 'user' ? ' style="align-self:flex-end;max-width:75%;justify-content:flex-end"' : '';
               messagesEl.insertAdjacentHTML('beforeend',
-                `<div class="message ${cls}">${avatar}<div class="message-bubble"><div class="message-content">${msg.content || ''}</div></div></div>`
+                `<div class="message ${cls}"${inlineStyle}>${avatar}<div class="message-bubble"><div class="message-content">${msg.content || ''}</div></div></div>`
               );
             }
           });
@@ -1930,11 +1943,11 @@ function sendMessage() {
 
   const messagesEl = document.getElementById('messages');
   const chatAreaEl = document.getElementById('chat-area');
-  const welcome = document.getElementById('welcome-screen');
-  if (welcome) welcome.remove();
+  // 清掉所有残留的 welcome screen（index.html 静态 + JS 渲染各一个，ID 重复）
+  document.querySelectorAll('#welcome-screen').forEach(el => el.remove());
   // 用户发消息时强制开启跟滚，确保新内容第一时间可见
   state.autoScroll = true;
-  messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
+  messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user" style="align-self:flex-end;max-width:75%;justify-content:flex-end"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
   // 自动命名标签页：第一条消息时，用消息内容前15个字作为标签名
   const tab = currentTab();
   if (state.chatHistory.length === 0 && tab.name === '新对话') {
