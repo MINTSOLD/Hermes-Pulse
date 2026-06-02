@@ -217,71 +217,198 @@ def _splash_html_content():
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{
-  background:#000;                     /* 纯黑底 — 看得见 */
+  background:#000;
   width:100%;height:100%;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   color:#fff;
+  position:relative;
 }
-body{display:flex;align-items:center;justify-content:center}
+body{display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
 
-/* Stack: tech rings → title → subtitle → progress bar → status */
+/* ══════════════════════════════════════════
+   Hex Grid Background — animated + breathing
+   ══════════════════════════════════════════ */
+.hex-grid{
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(30deg,  transparent 49%, rgba(212,175,55,0.06) 49%, rgba(212,175,55,0.06) 51%, transparent 51%),
+    linear-gradient(150deg, transparent 49%, rgba(212,175,55,0.06) 49%, rgba(212,175,55,0.06) 51%, transparent 51%),
+    linear-gradient(90deg,  transparent 49%, rgba(212,175,55,0.04) 49%, rgba(212,175,55,0.04) 51%, transparent 51%),
+    linear-gradient(210deg, transparent 49%, rgba(212,175,55,0.04) 49%, rgba(212,175,55,0.04) 51%, transparent 51%);
+  background-size:60px 104px;
+  background-position:0 0, 0 0, 30px 52px, 30px 52px;
+  -webkit-mask-image:radial-gradient(ellipse at center, #000 30%, transparent 80%);
+  mask-image:radial-gradient(ellipse at center, #000 30%, transparent 80%);
+  animation:hexDrift 30s linear infinite;
+  opacity:0.7;
+  z-index:0;
+}
+@keyframes hexDrift{
+  0%   {background-position:0 0, 0 0, 30px 52px, 30px 52px;}
+  100% {background-position:60px 104px, 60px 104px, 90px 156px, 90px 156px;}
+}
+
+/* Scanline sweep — full-width moving band */
+.scanline{
+  position:fixed;left:0;right:0;height:80px;
+  background:linear-gradient(180deg,
+    transparent 0%, rgba(212,175,55,0.04) 50%, transparent 100%);
+  top:0;z-index:1;pointer-events:none;
+  animation:scanY 4s linear infinite;
+}
+@keyframes scanY{
+  0%   {transform:translateY(-80px)}
+  100% {transform:translateY(100vh)}
+}
+/* Faint horizontal CRT lines (top fixed) */
+.crt-lines{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 3px);
+  mix-blend-mode:overlay;
+}
+
+/* Vignette */
+.vignette{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at center,
+    transparent 40%, rgba(0,0,0,0.6) 100%);
+}
+
+/* Floating matrix particles */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.particle{
+  position:absolute;width:1px;height:1px;
+  background:rgba(212,175,55,0.6);
+  box-shadow:0 0 4px 1px rgba(212,175,55,0.4);
+  animation:particleFloat linear infinite;
+}
+@keyframes particleFloat{
+  0%   {transform:translateY(100vh) translateX(0);opacity:0;}
+  10%  {opacity:1;}
+  90%  {opacity:1;}
+  100% {transform:translateY(-10vh) translateX(40px);opacity:0;}
+}
+
+/* ══════════════════════════════════════════
+   Main stack
+   ══════════════════════════════════════════ */
 .wrap{
   text-align:center;width:100%;max-width:520px;padding:0 24px;
-  animation:wrapOut 0.8s 2.2s cubic-bezier(0.4,0,0.2,1) forwards;
+  position:relative;z-index:2;
+  animation:wrapOut 0.8s 2.4s cubic-bezier(0.4,0,0.2,1) forwards;
 }
 @keyframes wrapOut{
   0%   {opacity:1;transform:scale(1);filter:blur(0px)}
-  100% {opacity:0;transform:scale(1.06);filter:blur(6px)}
+  100% {opacity:0;transform:scale(1.1);filter:blur(8px)}
 }
 .splash-center-fix { margin-top: -20px; }
-.bar-track, .status, .title, .sub {
-  animation:chromeOut 0.5s 2.3s ease forwards;
+
+/* corner brackets (HUD frame) */
+.hud-bracket{
+  position:absolute;width:24px;height:24px;
+  border:1px solid rgba(212,175,55,0.4);
+  pointer-events:none;
 }
-@keyframes chromeOut{
-  to{opacity:0}
+.hud-bracket.tl{top:-32px;left:50%;transform:translateX(-160px);border-right:0;border-bottom:0;}
+.hud-bracket.tr{top:-32px;left:50%;transform:translateX(136px);border-left:0;border-bottom:0;}
+.hud-bracket.bl{bottom:-32px;left:50%;transform:translateX(-160px);border-right:0;border-top:0;}
+.hud-bracket.br{bottom:-32px;left:50%;transform:translateX(136px);border-left:0;border-top:0;}
+.hud-bracket.bl,.hud-bracket.br{animation:hudPulse 2.5s 1.5s ease-in-out infinite alternate;}
+@keyframes hudPulse{
+  0%   {border-color:rgba(212,175,55,0.3)}
+  100% {border-color:rgba(212,175,55,0.7)}
 }
 
-/* Tech startup rings — pure CSS, no image needed */
+/* Tech startup rings — 6-ring multi-track + orbital particles */
 .tech-wrap{
-  position:relative;width:120px;height:120px;
-  margin:0 auto 32px;
+  position:relative;width:160px;height:160px;
+  margin:0 auto 36px;
+}
+/* Outer pulsing aura */
+.tech-aura{
+  position:absolute;inset:-30px;border-radius:50%;
+  background:radial-gradient(circle,rgba(212,175,55,0.18) 0%,transparent 65%);
+  animation:auraPulse 3s ease-in-out infinite;
+}
+@keyframes auraPulse{
+  0%,100%{opacity:0.5;transform:scale(0.95);}
+  50%   {opacity:1;transform:scale(1.05);}
 }
 .tech-ring{
   position:absolute;border-radius:50%;
   top:50%;left:50%;transform:translate(-50%,-50%);
 }
-.tech-ring-outer{
-  width:120px;height:120px;
-  border:1px solid rgba(212,175,55,0.12);
-  animation:techSpin 8s linear infinite;
+.tech-ring-outer{width:160px;height:160px;border:1px solid rgba(212,175,55,0.1);
+  animation:techSpin 14s linear infinite;}
+.tech-ring-r1{width:140px;height:140px;border:1px dashed rgba(212,175,55,0.18);
+  animation:techSpin 9s linear infinite reverse;}
+.tech-ring-r2{width:118px;height:118px;border:1px solid rgba(212,175,55,0.32);
+  border-top-color:rgba(212,175,55,0.8);border-bottom-color:transparent;
+  animation:techSpin 6s linear infinite;}
+.tech-ring-mid{width:96px;height:96px;border:1px solid rgba(212,175,55,0.4);
+  border-right-color:transparent;
+  animation:techSpin 4s linear infinite reverse;}
+.tech-ring-r3{width:74px;height:74px;border:1px solid rgba(212,175,55,0.18);
+  animation:techSpin 2.4s linear infinite;}
+.tech-ring-inner{width:48px;height:48px;border:1.5px solid rgba(212,175,55,0.6);
+  animation:techSpin 1.6s linear infinite reverse;
+  box-shadow:inset 0 0 12px rgba(212,175,55,0.3);
 }
-.tech-ring-mid{
-  width:90px;height:90px;
-  border:1px solid rgba(212,175,55,0.25);
-  border-top-color:rgba(212,175,55,0.6);
-  animation:techSpin 5s linear infinite reverse;
+/* Core glow center */
+.tech-core{
+  position:absolute;width:14px;height:14px;border-radius:50%;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#d4af37;
+  box-shadow:0 0 16px 4px rgba(212,175,55,0.7),
+             0 0 32px 8px rgba(212,175,55,0.3);
+  animation:corePulse 1.5s ease-in-out infinite;
+  z-index:3;
 }
-.tech-ring-inner{
-  width:56px;height:56px;
-  border:1.5px solid rgba(212,175,55,0.08);
-  animation:techSpin 3s linear infinite;
+@keyframes corePulse{
+  0%,100%{transform:translate(-50%,-50%) scale(0.85);opacity:0.7;}
+  50%   {transform:translate(-50%,-50%) scale(1.15);opacity:1;}
 }
+/* Orbital particles on rings */
 .tech-dot{
-  position:absolute;width:4px;height:4px;
+  position:absolute;width:5px;height:5px;
   background:#d4af37;border-radius:50%;
-  box-shadow:0 0 8px 2px rgba(212,175,55,0.5);
+  box-shadow:0 0 10px 2px rgba(212,175,55,0.6);
 }
-.tech-dot-outer{top:-2px;left:50%;transform:translateX(-50%);}
-.tech-dot-mid{top:50%;right:-2px;transform:translateY(-50%);}
-.tech-dot-inner{top:-2px;left:50%;transform:translateX(-50%);}
-/* Scanning crosshair — subtle + rotated to feel like a HUD overlay */
-.tech-cross{position:absolute;width:80px;height:80px;top:50%;left:50%;
+.tech-dot-outer{top:-2.5px;left:50%;transform:translateX(-50%);}
+.tech-dot-mid{top:50%;right:-2.5px;transform:translateY(-50%);}
+.tech-dot-inner{top:-2.5px;left:50%;transform:translateX(-50%);}
+/* Additional 3 orbital particles at different positions */
+.tech-dot-r1{bottom:15%;right:8%;}
+.tech-dot-r2{top:20%;left:8%;}
+.tech-dot-r3{top:50%;left:-2.5px;transform:translateY(-50%);}
+/* Scanline that sweeps across the rings */
+.tech-scan{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,0.7),transparent);
+  top:50%;pointer-events:none;
+  animation:techScan 2.5s ease-in-out infinite alternate;
+  z-index:2;
+}
+@keyframes techScan{
+  0%   {transform:translateY(-70px);opacity:0;}
+  20%  {opacity:1;}
+  80%  {opacity:1;}
+  100% {transform:translateY(70px);opacity:0;}
+}
+/* Scanning crosshair — HUD overlay */
+.tech-cross{position:absolute;width:100px;height:100px;top:50%;left:50%;
   transform:translate(-50%,-50%) rotate(0deg);
   animation:crossSpin 20s linear infinite;
   pointer-events:none;
+  z-index:1;
 }
 .tech-cross::before,.tech-cross::after{
-  content:'';position:absolute;background:rgba(212,175,55,0.06);
+  content:'';position:absolute;background:rgba(212,175,55,0.08);
 }
 .tech-cross::before{width:1px;height:100%;left:50%;transform:translateX(-50%);}
 .tech-cross::after{width:100%;height:1px;top:50%;transform:translateY(-50%);}
@@ -340,36 +467,136 @@ body{display:flex;align-items:center;justify-content:center}
 .splash-mock-tag { color: var(--text-muted); font-size: 14px; opacity: 0.6; margin-bottom: 32px; letter-spacing: 4px; }
 .splash-mock-status { color: var(--text-muted); font-size: 12px; opacity: 0.5; }
 
-/* Title + subtitle — "HERMES" gets a golden shimmer sweep */
+/* Title with typewriter reveal + glitch */
 .title{
-  font-size:28px;
-  font-weight:200;
-  letter-spacing:10px;
-  margin-bottom:10px;
-  background:linear-gradient(
-    90deg,
-    rgba(255,255,255,0.3) 0%,
-    rgba(212,175,55,0.5) 25%,
-    rgba(255,255,255,0.9) 45%,
-    rgba(212,175,55,0.5) 65%,
-    rgba(255,255,255,0.3) 100%
-  );
+  font-size:32px;
+  font-weight:300;
+  letter-spacing:12px;
+  margin-bottom:6px;
+  font-family:"SF Mono","Consolas",monospace;
+  background:linear-gradient(90deg,
+    rgba(212,175,55,0.4) 0%,
+    rgba(255,255,255,0.95) 25%,
+    rgba(212,175,55,0.95) 50%,
+    rgba(255,255,255,0.95) 75%,
+    rgba(212,175,55,0.4) 100%);
   background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;
   -webkit-text-fill-color:transparent;
-  animation:titleIn 0.7s 0.4s cubic-bezier(0.16,1,0.3,1) both,
-             titleShimmer 2.8s 1.0s ease-in-out infinite;
+  animation:titleShimmer 2.4s linear infinite,
+             titleGlitch 4s 0.5s steps(1) infinite;
 }
 @keyframes titleShimmer{
   0%   {background-position:200% 0}
   100% {background-position:-200% 0}
 }
+@keyframes titleGlitch{
+  0%, 92%, 100%{transform:translate(0,0);text-shadow:none;}
+  93%{transform:translate(-1px,0);text-shadow:1px 0 #d4af37;}
+  95%{transform:translate(1px,0);text-shadow:-1px 0 rgba(255,255,255,0.6);}
+  97%{transform:translate(0,1px);text-shadow:1px 0 #d4af37;}
+}
+/* Sub-caption */
 .sub{
   color:#7a7a7a;
-  font-size:12px;
-  letter-spacing:4px;
-  margin-bottom:48px;
-  animation:titleIn 0.7s 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  font-size:11px;
+  letter-spacing:6px;
+  margin-bottom:24px;
+  font-family:"SF Mono","Consolas",monospace;
+  opacity:0;
+  animation:subIn 0.6s 0.7s ease forwards;
+}
+@keyframes subIn{
+  from{opacity:0;letter-spacing:2px;}
+  to  {opacity:1;letter-spacing:6px;}
+}
+/* Title bracket frame */
+.title-bracket{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  margin-bottom:24px;
+  font-family:"SF Mono","Consolas",monospace;
+  font-size:10px;color:rgba(212,175,55,0.5);
+  letter-spacing:2px;
+}
+.title-bracket::before,.title-bracket::after{
+  content:'';flex:0 0 60px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,0.5),transparent);
+}
+.title-bracket::before{background:linear-gradient(90deg,transparent,rgba(212,175,55,0.5));}
+.title-bracket::after{background:linear-gradient(-90deg,transparent,rgba(212,175,55,0.5));}
+
+/* Waveform equalizer — 8 bars */
+.wave-bars{
+  display:flex;align-items:center;justify-content:center;
+  gap:3px;height:32px;margin:0 auto 20px;
+}
+.wave-bars span{
+  width:3px;height:8px;background:#d4af37;
+  border-radius:1px;
+  animation:waveBar 0.9s ease-in-out infinite;
+  box-shadow:0 0 6px rgba(212,175,55,0.4);
+}
+.wave-bars span:nth-child(1){animation-delay:0.0s;}
+.wave-bars span:nth-child(2){animation-delay:0.1s;}
+.wave-bars span:nth-child(3){animation-delay:0.2s;}
+.wave-bars span:nth-child(4){animation-delay:0.3s;}
+.wave-bars span:nth-child(5){animation-delay:0.4s;}
+.wave-bars span:nth-child(6){animation-delay:0.5s;}
+.wave-bars span:nth-child(7){animation-delay:0.6s;}
+.wave-bars span:nth-child(8){animation-delay:0.7s;}
+@keyframes waveBar{
+  0%,100%{height:6px;opacity:0.4;}
+  50%   {height:28px;opacity:1;}
+}
+
+/* Progress bar with shimmer */
+.bar-track{
+  width:320px;height:2px;
+  background:rgba(212,175,55,0.15);
+  margin:0 auto 12px;
+  position:relative;overflow:hidden;
+  border-radius:1px;
+  box-shadow:0 0 8px rgba(212,175,55,0.15);
+}
+.bar-fill{
+  position:absolute;left:0;top:0;
+  height:100%;width:0%;
+  background:linear-gradient(90deg,transparent 0%,#d4af37 50%,transparent 100%);
+  animation:fillBar 2.0s cubic-bezier(0.4,0,0.2,1) forwards;
+  box-shadow:0 0 8px rgba(212,175,55,0.6);
+}
+.bar-shimmer{
+  position:absolute;top:0;left:-30%;
+  width:30%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);
+  animation:shimmer 1.6s linear infinite;
+}
+@keyframes fillBar{0%{width:0%}100%{width:100%}}
+@keyframes shimmer{0%{left:-30%}100%{left:100%}}
+
+/* Status line with blinking LED */
+.status{
+  color:#5a5a5a;
+  font-size:10px;
+  letter-spacing:3px;
+  min-height:14px;
+  font-family:"SF Mono","Consolas",monospace;
+  display:inline-flex;align-items:center;gap:8px;
+  animation:statusFade 1.6s ease-in-out infinite;
+}
+.status::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:#d4af37;
+  box-shadow:0 0 6px 1px rgba(212,175,55,0.7);
+  animation:ledBlink 0.8s ease-in-out infinite;
+}
+@keyframes ledBlink{
+  0%,100%{opacity:0.3;}
+  50%   {opacity:1;}
+}
+@keyframes statusFade{
+  0%,100%{opacity:0.5}
+  50%{opacity:0.95}
 }
 @keyframes titleIn{
   from{opacity:0;transform:translateY(10px)}
@@ -413,20 +640,49 @@ body{display:flex;align-items:center;justify-content:center}
   50%{opacity:0.95}
 }
 </style></head><body>
-<!-- Stage 1: loading UI (big logo + brand title + progress bar). Fades out at 2.5s. -->
+<div class="hex-grid"></div>
+<div class="scanline"></div>
+<div class="crt-lines"></div>
+<div class="vignette"></div>
+<div class="particles">
+  <div class="particle" style="left:10%;animation-duration:8s;animation-delay:0s;"></div>
+  <div class="particle" style="left:25%;animation-duration:12s;animation-delay:1s;"></div>
+  <div class="particle" style="left:45%;animation-duration:9s;animation-delay:2s;"></div>
+  <div class="particle" style="left:65%;animation-duration:11s;animation-delay:0.5s;"></div>
+  <div class="particle" style="left:80%;animation-duration:7s;animation-delay:3s;"></div>
+  <div class="particle" style="left:90%;animation-duration:10s;animation-delay:1.5s;"></div>
+  <div class="particle" style="left:35%;animation-duration:13s;animation-delay:2.5s;"></div>
+  <div class="particle" style="left:55%;animation-duration:8.5s;animation-delay:0.8s;"></div>
+</div>
+<!-- Stage 1: full sci-fi startup UI. Fades out at 2.4s. -->
 <div class="splash-loading">
 <div class="splash-center-fix">
 <div class="wrap">
+  <div class="title-bracket">SYSTEM BOOT</div>
   <div class="tech-wrap">
-      <div class="tech-ring tech-ring-outer"><span class="tech-dot tech-dot-outer"></span></div>
-      <div class="tech-ring tech-ring-mid"><span class="tech-dot tech-dot-mid"></span></div>
-      <div class="tech-ring tech-ring-inner"><span class="tech-dot tech-dot-inner"></span></div>
-      <div class="tech-cross"></div>
-    </div>
+    <div class="tech-aura"></div>
+    <div class="tech-ring tech-ring-outer"><span class="tech-dot tech-dot-outer"></span></div>
+    <div class="tech-ring tech-ring-r1"><span class="tech-dot tech-dot-r1"></span></div>
+    <div class="tech-ring tech-ring-r2"><span class="tech-dot tech-dot-r2"></span></div>
+    <div class="tech-ring tech-ring-mid"><span class="tech-dot tech-dot-mid"></span></div>
+    <div class="tech-ring tech-ring-r3"><span class="tech-dot tech-dot-r3"></span></div>
+    <div class="tech-ring tech-ring-inner"><span class="tech-dot tech-dot-inner"></span></div>
+    <div class="tech-scan"></div>
+    <div class="tech-cross"></div>
+    <div class="tech-core"></div>
+  </div>
   <div class="title">HERMES</div>
   <div class="sub">轻于形 · 智于心</div>
+  <div class="wave-bars">
+    <span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
+  </div>
   <div class="bar-track"><div class="bar-shimmer"></div><div class="bar-fill"></div></div>
-  <div class="status">正在准备</div>
+  <div class="status">INITIALIZING</div>
+  <div class="hud-bracket tl"></div>
+  <div class="hud-bracket tr"></div>
+  <div class="hud-bracket bl"></div>
+  <div class="hud-bracket br"></div>
   </div>
   </div>
   </div>
