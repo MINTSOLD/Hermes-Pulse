@@ -28,14 +28,16 @@ let profiles = [];  // 从 config_server 加载
 let currentProfile = 'default';
 
 // SVG 图标 — 透明底，线条风格，颜色跟随界面
+// 全部统一 24×24 viewBox，stroke-width 1.5，线条风格
 const PROFILE_SVG = {
-  default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>',
-  coding: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
-  writing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-  research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
-  creative: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>',
-  business: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>',
-  learning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>',
+  // 机器人头像：圆形脸 + 双眼 + 天线 + 微笑嘴（清新可爱）
+  default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><line x1="12" y1="4" x2="12" y2="8"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/><circle cx="9" cy="13" r="1" fill="currentColor"/><circle cx="15" cy="13" r="1" fill="currentColor"/><path d="M10 16.5c.5.5 1.2.8 2 .8s1.5-.3 2-.8"/></svg>',
+  coding: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  writing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+  creative: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>',
+  business: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>',
+  learning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>',
 };
 
 function getProfileIcon(name) {
@@ -65,10 +67,11 @@ async function loadProfiles() {
 function updateAgentSelector() {
   const el = document.getElementById('current-agent');
   if (!el) return;
-  const iconEl = el.querySelector('.agent-icon');
+  const iconEl = document.getElementById('current-agent-icon');
   if (iconEl) iconEl.innerHTML = getProfileIcon(currentProfile);
-  const nameEl = el.querySelector('.agent-name');
-  if (nameEl) nameEl.textContent = getProfileLabel(currentProfile);
+  // Also update the hover tooltip label (the toolbar is now icon-only).
+  const tipEl = document.getElementById('current-agent-name-tooltip');
+  if (tipEl) tipEl.textContent = getProfileLabel(currentProfile);
 }
 
 function toggleAgentDropdown(e) {
@@ -560,17 +563,79 @@ function updateConnectionStatus() {
   if (state.connected) {
     el.className = 'status-indicator online';
     if (text) text.textContent = '已连接';
-    if (dot) dot.style.background = '#fff';
+    // Don't set dot.style.background here — let CSS handle the gold pulse
+    // (overriding it in JS would freeze the dot on the "100% gold" frame
+    // and break the breathing animation). The .online class triggers the
+    // .dot-gold-pulse keyframe via the stylesheet.
+    if (dot) dot.style.background = '';
     btn?.classList.add('connected');
     footer?.classList.add('connected');
   } else {
     el.className = 'status-indicator offline';
     if (text) text.textContent = state.failReason ? `未连接 · ${state.failReason}` : '未连接';
-    if (dot) dot.style.background = '#333';
+    if (dot) dot.style.background = '';
     btn?.classList.remove('connected');
     footer?.classList.remove('connected');
   }
 }
+
+// ============================================
+// 自适应 Tooltip — 鼠标悬停时检查 tooltip 是否超出窗口边界
+// ============================================
+
+const _tooltipFixMap = new WeakMap();
+
+document.addEventListener('mouseover', e => {
+  const btn = e.target.closest('.model-selector-icon, .agent-selector-icon');
+  if (!btn) return;
+  const tip = btn.querySelector('.model-name-tooltip, .agent-name-tooltip');
+  if (!tip) return;
+
+  // Reset first (in case previous adjustment is stale)
+  tip.style.left = '';
+  tip.style.right = '';
+  tip.style.transform = '';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const rect = tip.getBoundingClientRect();
+      const pad = 6;
+      let needFix = false;
+
+      if (rect.left < pad) {
+        // Overflow left edge → pin to left
+        tip.style.left = '0';
+        tip.style.right = 'auto';
+        tip.style.transform = 'translateX(0) translateY(0)';
+        needFix = true;
+      } else if (rect.right > window.innerWidth - pad) {
+        // Overflow right edge → pin to right
+        tip.style.left = 'auto';
+        tip.style.right = '0';
+        tip.style.transform = 'translateX(0) translateY(0)';
+        needFix = true;
+      }
+
+      if (needFix) {
+        _tooltipFixMap.set(tip, true);
+      }
+    });
+  });
+});
+
+// Reset inline styles on mouseout so the default CSS centering kicks back in
+document.addEventListener('mouseout', e => {
+  const btn = e.target.closest('.model-selector-icon, .agent-selector-icon');
+  if (!btn) return;
+  const tip = btn.querySelector('.model-name-tooltip, .agent-name-tooltip');
+  if (!tip) return;
+  if (_tooltipFixMap.has(tip)) {
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    _tooltipFixMap.delete(tip);
+  }
+});
 
 // ============================================
 // 模型管理
@@ -578,7 +643,10 @@ function updateConnectionStatus() {
 
 function loadModels() {
   state.currentModel = CACHED_DEFAULT_MODEL;
-  document.querySelector('.model-name').textContent = getModelName(CACHED_DEFAULT_MODEL);
+  // Toolbar model-name-tooltip is the new home for the model name.
+  const nameEl = document.querySelector('.model-name-tooltip') ||
+                 document.querySelector('.model-name');
+  if (nameEl) nameEl.textContent = getModelName(CACHED_DEFAULT_MODEL);
   updateTokenBar();
 }
 
@@ -1419,8 +1487,10 @@ function renderTabBar() {
     div.className = 'tab' + (i === currentTabIndex ? ' active' : '');
     div.dataset.index = i;
     div.onclick = () => switchTab(i);
-    const agentName = currentProfile;
-    div.innerHTML = `<span class="tab-name">${tab.name}</span><span class="tab-agent">${getProfileIcon(currentProfile)} ${getProfileLabel(currentProfile)}</span>`;
+    // Inline icon + name, no separate agent row. The agent icon (per-profile)
+    // is the visual marker for "this tab belongs to agent X".
+    const profileIcon = getProfileIcon(currentProfile);
+    div.innerHTML = `<span class="tab-icon">${profileIcon}</span><span class="tab-name">${tab.name}</span>`;
     if (tabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';

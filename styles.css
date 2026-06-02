@@ -83,29 +83,79 @@ body {
 
 .toolbar-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 4px; }
 
+/* ============================================
+   Unified icon button size (14×14) — all toolbar SVGs match
+   ============================================ */
+.toolbar-left .model-selector svg,
+.toolbar-left .agent-selector > svg,
+.toolbar-left .btn-history svg,
+.toolbar-left .btn-new-tab svg,
+.toolbar-left .tab .tab-close {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+}
+.btn-reconnect svg { width: 14px !important; height: 14px !important; }
+.btn-icon svg { width: 18px !important; height: 18px !important; }
+
 .toolbar-session { display: flex; align-items: center; gap: 4px; }
 .toolbar-session-name { font-size: 12px; color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Model 选择器 — icon-only mode in toolbar (no name, no chevron, just icon + hover tooltip) */
 .model-selector {
-  display: flex; align-items: center; gap: 4px; padding: 4px 10px;
+  display: flex; align-items: center; gap: 0; padding: 4px 6px;
   border-radius: 6px; cursor: pointer; font-size: 13px;
-  color: var(--text-secondary); transition: background 0.15s;
+  color: var(--text-secondary); transition: background 0.15s, color 0.15s;
+  position: relative;       /* anchor for hover tooltip */
 }
-.model-selector:hover { background: var(--bg-hover); color: var(--text-primary); }
-
-/* Agent 选择器 */
-.agent-selector {
-  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
-  border-radius: 6px; cursor: pointer; font-size: 13px;
-  color: var(--text-secondary); transition: background 0.15s;
-  min-width: 100px; max-width: 200px;
-}
-.agent-selector:hover { background: var(--bg-hover); color: var(--text-primary); }
-.agent-icon {
-  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+.model-selector:hover { background: var(--bg-hover); color: var(--text-primary); color: #d4af37; }
+.model-icon {
+  width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.agent-icon svg { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
+.model-icon svg { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
+
+/* Hover tooltip — floats below the icon when you mouse over a toolbar icon
+   button (model selector, agent selector, etc.). Pure CSS, no JS needed. */
+.model-selector-icon .model-name-tooltip,
+.agent-selector-icon .agent-name-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);     /* 6px gap below the icon */
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  padding: 4px 10px;
+  background: rgba(20, 20, 20, 0.96);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;     /* don't intercept mouse */
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  z-index: 300;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.model-selector-icon:hover .model-name-tooltip,
+.agent-selector-icon:hover .agent-name-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Agent 选择器 — icon-only mode in toolbar (no name, no chevron, just icon) */
+.agent-selector {
+  display: flex; align-items: center; gap: 0; padding: 4px 6px;
+  border-radius: 6px; cursor: pointer; font-size: 13px;
+  color: var(--text-secondary); transition: background 0.15s, color 0.15s;
+  min-width: 0; max-width: none;
+  position: relative;       /* anchor for #agent-dropdown */
+}
+.agent-selector:hover { background: var(--bg-hover); color: var(--text-primary); color: #d4af37; }
+.agent-icon {
+  width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.agent-icon svg { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
 .agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 18px; }
 
 .agent-dropdown {
@@ -166,22 +216,21 @@ body {
 .toolbar-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; flex: 1; min-width: 0; position: relative; }
 .toolbar-tabs::-webkit-scrollbar { height: 0; }
 .tab {
-  display: flex; flex-direction: column; align-items: flex-start;
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
   padding: 2px 8px; font-size: 12px; color: var(--text-muted);
-  cursor: pointer; border-radius: 6px; transition: all 0.15s;
-  position: relative; max-width: 140px; overflow: hidden;
-  flex-shrink: 0; white-space: nowrap; gap: 0;
+  border-radius: 4px; cursor: pointer; min-width: 0; max-width: 200px;
+  flex-shrink: 0;
 }
 .tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); }
 .tab.active { color: var(--text-primary); background: rgba(255,255,255,0.06); }
-.tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; display: block; font-size: 12px; line-height: 1.2; }
-.tab-agent { font-size: 10px; color: var(--text-muted); opacity: 0.7; line-height: 1.1; display: flex; align-items: center; gap: 2px; }
-.tab-agent svg { width: 10px; height: 10px; }
+.tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; display: block; font-size: 12px; line-height: 1.2; }
+.tab-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; flex-shrink: 0; opacity: 0.7; }
+.tab-icon svg { width: 14px; height: 14px; }
 .tab:hover .tab-name { animation: marquee 3s linear infinite; }
 @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 .tab .tab-close { display: none; background: none; border: none; color: var(--text-muted); font-size: 13px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
 .tab:hover .tab-close { display: inline; }
-.btn-new-tab { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; }
+.btn-new-tab { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 4px 4px 2px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; margin-left: 0; }
 .btn-new-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
 /* 历史会话下拉按钮 */
@@ -227,13 +276,13 @@ body {
    对话区
    ============================================ */
 
-#chat-area { flex: 1; overflow-y: auto; }
+#chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 #chat-area::-webkit-scrollbar { width: 6px; }
 #chat-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
-.messages { max-width: 1000px; margin: 0 auto; padding: 20px 24px; }
+.messages { max-width: 1000px; margin: 0 auto; padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
 
-.welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+.welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin-top: -20px; }
 .welcome-screen h1 { font-size: 24px; font-weight: 500; margin-bottom: 12px; color: var(--text-muted); }
 .welcome-screen p { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; opacity: 0.6; }
 .welcome-tips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 400px; }
@@ -244,19 +293,28 @@ body {
 
 .splash {
   min-height: 70vh; gap: 0; position: relative;
-  /* Welcome-screen fade-in: when the main page loads, the welcome logo +
-     tagline ease in over 0.6s. The `from` state matches the splash's
-     `wrapSettle` ending state EXACTLY (scale 0.54, opacity 0) so the
-     visual handoff is pixel-continuous: the user sees one logo at one
-     size in one position, dissolving from the splash chrome into the
-     main UI chrome.
+  /* Welcome-screen "ritual reveal" handoff:
+     splash settles to scale(0.54) (== our 140px logo) + opacity 0 + blur(8px)
+     over its 1.0s wrapSettle. This welcomeIn starts at that SAME state
+     (scale 0.54, opacity 0, blur 8px) and unfurls back to scale 1 / opacity
+     1 / blur 0 over 0.8s. The eye sees one logo, the same size, in the
+     same place, smoothly recovering from blur+small back to sharp+natural
+     while the background cross-fades from splash-black to the app theme.
 
-     scale 0.54 = splash's 260px logo × 0.54 = ~140px = welcome's logo size */
-  animation:welcomeIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+     The title and tagline follow 0.15s later so they "unfurl after" the
+     logo lands, giving a layered reveal. */
+  animation:welcomeIn 0.8s cubic-bezier(0.16,1,0.3,1) both;
 }
 @keyframes welcomeIn {
-  from { opacity: 0; transform: scale(0.54); }
-  to   { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.54); filter: blur(8px); }
+  to   { opacity: 1; transform: scale(1);    filter: blur(0);  }
+}
+.splash h1, .splash p, .splash-tagline, .splash-status {
+  animation:welcomeChild 0.6s 0.15s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes welcomeChild {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .splash-logo-wrap {
@@ -908,10 +966,22 @@ body {
 .toolbar-right .status-indicator.offline .status-dot { background: #333; box-shadow: none; }
 .toolbar-right .status-indicator.offline .status-text { color: var(--text-muted); }
 .toolbar-right .status-indicator.online .status-dot {
-  background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.4), 0 0 12px 3px rgba(255,255,255,0.15);
-  animation: dot-glow 3s ease-in-out infinite;
+  background: #d4af37; box-shadow: 0 0 6px 1px rgba(212,175,55,0.6), 0 0 12px 3px rgba(212,175,55,0.25);
+  animation: dot-gold-pulse 2.4s ease-in-out infinite;
 }
 .toolbar-right .status-indicator.online .status-text { color: var(--text-secondary); }
+@keyframes dot-gold-pulse {
+  0%, 100% {
+    background: #d4af37;
+    box-shadow: 0 0 4px 1px rgba(212,175,55,0.4), 0 0 8px 2px rgba(212,175,55,0.15);
+    transform: scale(1);
+  }
+  50% {
+    background: #f5d680;
+    box-shadow: 0 0 10px 2px rgba(212,175,55,0.8), 0 0 18px 4px rgba(212,175,55,0.35);
+    transform: scale(1.25);
+  }
+}
 .toolbar-right .status-indicator.connecting .status-dot {
   background: #666; animation: dot-connecting 1.2s ease-in-out infinite;
 }

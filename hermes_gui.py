@@ -224,104 +224,145 @@ html,body{
 }
 body{display:flex;align-items:center;justify-content:center}
 
-/* Stack: portrait (with glow) → title → subtitle → progress bar → status */
+/* Stack: tech rings → title → subtitle → progress bar → status */
 .wrap{
   text-align:center;width:100%;max-width:520px;padding:0 24px;
-  /* Splash → main handoff timeline (no abrupt cut):
-      0.0s  splash content fully visible (logo big, opacity 1)
-      2.4s  chrome (title / subtitle / bar / status) starts fading out
-      2.5s  logo + halo start a "settle" — shrink from scale 1.0 to 0.85
-            (this matches the welcome-screen's "from" scale in welcomeIn),
-            opacity 1 → 0
-      3.0s  load_url(URL) fires; the main page paints with the welcome
-            screen at opacity 0 / scale 0.85, then welcomeIn animates it
-            to opacity 1 / scale 1.0 over 0.6s. The eye sees the SAME
-            logo, in the SAME place, at the SAME size, dissolving from
-            "splash bg + content" into "main UI bg + content". */
-  transform-origin:center center;
-  animation:wrapSettle 0.5s 2.5s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation:wrapOut 0.8s 2.2s cubic-bezier(0.4,0,0.2,1) forwards;
 }
-@keyframes wrapSettle{
-  0%   {opacity:1;transform:scale(1)}
-  100% {opacity:0;transform:scale(0.54)}
+@keyframes wrapOut{
+  0%   {opacity:1;transform:scale(1);filter:blur(0px)}
+  100% {opacity:0;transform:scale(1.06);filter:blur(6px)}
 }
+.splash-center-fix { margin-top: -20px; }
 .bar-track, .status, .title, .sub {
-  animation:chromeOut 0.3s 2.4s ease forwards;
+  animation:chromeOut 0.5s 2.3s ease forwards;
 }
 @keyframes chromeOut{
   to{opacity:0}
 }
 
-/* Portrait + halo group — bigger and more dramatic */
-.portrait-wrap{
-  position:relative;
-  width:260px;height:260px;
-  margin:0 auto 44px;
-  display:flex;align-items:center;justify-content:center;
-  animation:portraitIn 1.0s cubic-bezier(0.16,1,0.3,1) both;
+/* Tech startup rings — pure CSS, no image needed */
+.tech-wrap{
+  position:relative;width:120px;height:120px;
+  margin:0 auto 32px;
 }
-.portrait{
-  width:260px;height:260px;
-  object-fit:contain;
-  filter:drop-shadow(0 6px 32px rgba(212,175,55,0.22));
-  position:relative;z-index:2;
-  animation:portraitBreathe 4.5s ease-in-out infinite;
+.tech-ring{
+  position:absolute;border-radius:50%;
+  top:50%;left:50%;transform:translate(-50%,-50%);
 }
-.halo{
-  position:absolute;
-  left:50%;top:50%;
-  width:340px;height:340px;
-  transform:translate(-50%,-50%);
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(212,175,55,0.25) 0%,rgba(212,175,55,0.08) 40%,transparent 70%);
-  z-index:1;
-  animation:haloPulse 3.2s ease-in-out infinite;
+.tech-ring-outer{
+  width:120px;height:120px;
+  border:1px solid rgba(212,175,55,0.12);
+  animation:techSpin 8s linear infinite;
 }
-.halo-ring{
-  position:absolute;
-  left:50%;top:50%;
-  width:300px;height:300px;
-  transform:translate(-50%,-50%);
-  border-radius:50%;
-  border:1px solid rgba(212,175,55,0.18);
-  z-index:1;
-  animation:ringRotate 18s linear infinite;
+.tech-ring-mid{
+  width:90px;height:90px;
+  border:1px solid rgba(212,175,55,0.25);
+  border-top-color:rgba(212,175,55,0.6);
+  animation:techSpin 5s linear infinite reverse;
 }
-.halo-ring::before{
-  content:"";
-  position:absolute;
-  top:-3px;left:50%;
-  width:6px;height:6px;
-  background:#d4af37;
-  border-radius:50%;
-  transform:translateX(-50%);
-  box-shadow:0 0 12px 2px rgba(212,175,55,0.6);
+.tech-ring-inner{
+  width:56px;height:56px;
+  border:1.5px solid rgba(212,175,55,0.08);
+  animation:techSpin 3s linear infinite;
 }
-@keyframes portraitIn{
-  from{opacity:0;transform:translateY(28px) scale(0.88)}
-  to{opacity:1;transform:translateY(0) scale(1)}
+.tech-dot{
+  position:absolute;width:4px;height:4px;
+  background:#d4af37;border-radius:50%;
+  box-shadow:0 0 8px 2px rgba(212,175,55,0.5);
 }
-@keyframes portraitBreathe{
+.tech-dot-outer{top:-2px;left:50%;transform:translateX(-50%);}
+.tech-dot-mid{top:50%;right:-2px;transform:translateY(-50%);}
+.tech-dot-inner{top:-2px;left:50%;transform:translateX(-50%);}
+/* Scanning crosshair — subtle + rotated to feel like a HUD overlay */
+.tech-cross{position:absolute;width:80px;height:80px;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(0deg);
+  animation:crossSpin 20s linear infinite;
+  pointer-events:none;
+}
+.tech-cross::before,.tech-cross::after{
+  content:'';position:absolute;background:rgba(212,175,55,0.06);
+}
+.tech-cross::before{width:1px;height:100%;left:50%;transform:translateX(-50%);}
+.tech-cross::after{width:100%;height:1px;top:50%;transform:translateY(-50%);}
+@keyframes techSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes crossSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+/* Stage 1: full "loading" UI — visible at t=0, fades out at t=2.5s */
+.splash-loading { animation: stage1Out 0.6s 2.5s ease forwards; }
+@keyframes stage1Out {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); filter: blur(4px); }
+}
+/* Stage 2: a static "main UI mock" (welcome screen). Hidden at t=0,
+   fades in at t=2.7s and stays visible. The eye sees the splash's
+   "loading" content morph into the main UI's welcome screen — same
+   logo size, same layout, same colors — without any cross-document
+   cut. At t=4.5s Python calls load_url(URL) to swap in the real
+   webview2 main page, but since the mock and the real page look
+   identical at the handoff, the user perceives one continuous UI. */
+.splash-mock {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; transform: scale(0.96);
+  animation: stage2In 0.8s 2.7s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes stage2In {
+  0%   { opacity: 0; transform: scale(0.96); filter: blur(8px); }
+  100% { opacity: 1; transform: scale(1);    filter: blur(0);   }
+}
+/* Same layout as the real main UI: toolbar (48px) → chat center → input. */
+.splash-mock-toolbar {
+  flex-shrink: 0; height: 48px;
+  background: linear-gradient(180deg, #0a0a0a 0%, #000 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  opacity: 0; animation: mockChromeIn 0.5s 2.9s ease forwards;
+}
+.splash-mock-center {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  margin-top: -20px;
+}
+.splash-mock-input {
+  flex-shrink: 0; height: 100px;
+  background: linear-gradient(0deg, #0a0a0a 0%, #000 100%);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  opacity: 0; animation: mockChromeIn 0.5s 2.9s ease forwards;
+}
+@keyframes mockChromeIn { to { opacity: 1; } }
+.splash-mock-logo { width: 140px; height: 140px; object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(212,175,55,0.18));
+  animation: mockLogoBreathe 4.5s ease-in-out infinite; }
+@keyframes mockLogoBreathe {
   0%,100%{transform:scale(1)}
   50%{transform:scale(1.025)}
 }
-@keyframes haloPulse{
-  0%,100%{opacity:0.5;transform:translate(-50%,-50%) scale(1)}
-  50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
-}
-@keyframes ringRotate{
-  from{transform:translate(-50%,-50%) rotate(0deg)}
-  to{transform:translate(-50%,-50%) rotate(360deg)}
-}
+.splash-mock h1 { color: var(--text-muted); font-size: 24px; font-weight: 500; margin-top: 24px; margin-bottom: 8px; letter-spacing: 0.5px; }
+.splash-mock-tag { color: var(--text-muted); font-size: 14px; opacity: 0.6; margin-bottom: 32px; letter-spacing: 4px; }
+.splash-mock-status { color: var(--text-muted); font-size: 12px; opacity: 0.5; }
 
-/* Title + subtitle */
+/* Title + subtitle — "HERMES" gets a golden shimmer sweep */
 .title{
-  color:#fff;
   font-size:28px;
   font-weight:200;
   letter-spacing:10px;
   margin-bottom:10px;
-  animation:titleIn 0.7s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  background:linear-gradient(
+    90deg,
+    rgba(255,255,255,0.3) 0%,
+    rgba(212,175,55,0.5) 25%,
+    rgba(255,255,255,0.9) 45%,
+    rgba(212,175,55,0.5) 65%,
+    rgba(255,255,255,0.3) 100%
+  );
+  background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:titleIn 0.7s 0.4s cubic-bezier(0.16,1,0.3,1) both,
+             titleShimmer 2.8s 1.0s ease-in-out infinite;
+}
+@keyframes titleShimmer{
+  0%   {background-position:200% 0}
+  100% {background-position:-200% 0}
 }
 .sub{
   color:#7a7a7a;
@@ -372,16 +413,37 @@ body{display:flex;align-items:center;justify-content:center}
   50%{opacity:0.95}
 }
 </style></head><body>
+<!-- Stage 1: loading UI (big logo + brand title + progress bar). Fades out at 2.5s. -->
+<div class="splash-loading">
+<div class="splash-center-fix">
 <div class="wrap">
-  <div class="portrait-wrap">
-    <div class="halo"></div>
-    <div class="halo-ring"></div>
-    <img class="portrait" src="hermes-logo.png" alt="Hermes">
-  </div>
+  <div class="tech-wrap">
+      <div class="tech-ring tech-ring-outer"><span class="tech-dot tech-dot-outer"></span></div>
+      <div class="tech-ring tech-ring-mid"><span class="tech-dot tech-dot-mid"></span></div>
+      <div class="tech-ring tech-ring-inner"><span class="tech-dot tech-dot-inner"></span></div>
+      <div class="tech-cross"></div>
+    </div>
   <div class="title">HERMES</div>
   <div class="sub">轻于形 · 智于心</div>
   <div class="bar-track"><div class="bar-shimmer"></div><div class="bar-fill"></div></div>
   <div class="status">正在准备</div>
+  </div>
+  </div>
+  </div>
+
+  <!-- Stage 2: main UI mock (welcome screen, 140px logo, brand title). Fades
+     in at 2.7s. Looks identical to the real main UI, so when Python
+     calls load_url(URL) at 4.5s to swap in the real webview2 page, the
+     user perceives zero cut. -->
+<div class="splash-mock">
+  <div class="splash-mock-toolbar"></div>
+  <div class="splash-mock-center">
+    <img class="splash-mock-logo" src="hermes-logo.png" alt="Hermes">
+    <h1>Hermes</h1>
+    <div class="splash-mock-tag">轻于形 · 智于心</div>
+    <div class="splash-mock-status">选择模型 · 开始对话</div>
+  </div>
+  <div class="splash-mock-input"></div>
 </div>
 </body></html>"""
 
@@ -503,12 +565,19 @@ def start_tray():
 def _apply_dark_titlebar(hwnd):
     if not _IS_WIN: return
     dwmapi = ctypes.windll.dwmapi
-    try: dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ctypes.byref(ctypes.c_int(0)), 4)
-    except: pass
-    try: dwmapi.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(ctypes.c_int(0)), 4)
-    except: pass
+    # 1. Immersive dark mode for the title bar (attribute 20). Without this,
+    #    DWM uses a white caption on most Win10 themes regardless of any
+    #    color attribute we set next.
     try: dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ctypes.byref(ctypes.c_int(1)), 4)
-    except: pass
+    except Exception: pass
+    # 2. Caption bar background = #000000 (matches the app's dark theme).
+    #    BGR-ordered COLORREF: 0x00BBGGRR.
+    try: dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ctypes.byref(ctypes.c_int(0x00000000)), 4)
+    except Exception: pass
+    # 3. Caption text color = #d4af37 (gold "Hermes"). Win11 22H2+; harmless
+    #    error on older Windows. BGR: 0x0037afd4.
+    try: dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(ctypes.c_int(0x0037afd4)), 4)
+    except Exception: pass
 
 def on_window_close():
     global window, _minimize_to_tray
@@ -571,13 +640,28 @@ if __name__ == '__main__':
     else:
         # Last-ditch fallback if the write failed: in-memory HTML
         splash_url = _splash_html_content()
-    w = webview.create_window('Hermes', url=splash_url,
-        x=(sw-win_w)//2, y=(sh-win_h)//2,
-        width=win_w, height=win_h,
-        min_size=(800, 600), resizable=True, text_select=True,
-        background_color="#000000")
+    w = webview.create_window('Hermes Pulse', url=splash_url,
+            x=(sw-win_w)//2, y=(sh-win_h)//2,
+            width=win_w, height=win_h,
+            min_size=(800, 600), resizable=True, text_select=True,
+            background_color="#000000")
     window = w
     w.events.closing += on_window_close
+
+        # Apply dark titlebar ASAP — right after window creation, not after
+        # load_url. Without this the splash phase shows a white title bar
+        # against the black splash background.
+    if _IS_WIN:
+        def _dark_titlebar_early():
+            for _ in range(100):
+                try:
+                    if window and window.native and window.native.Handle:
+                        _apply_dark_titlebar(window.native.Handle.ToInt32())
+                        return
+                except Exception:
+                    pass
+                time.sleep(0.05)
+        threading.Thread(target=_dark_titlebar_early, daemon=True).start()
     _minimize_to_tray = True
 
     def _splash_progress_thread():
@@ -602,7 +686,7 @@ if __name__ == '__main__':
         t0 = time.time()
         cs_ready_at = None
         gw_ready_at = None
-        _splash_min_ms = 3000   # splash 2.5s 触发 collapse + 0.5s 跑完 = 3.0s 后才切主页
+        _splash_min_ms = 4500   # splash 跑 stage1 (2.5s) + stage2 mock (1.8s) + 缓冲 0.2s = 4.5s 后才切真主页
 
         # Poll services for up to 12s
         for i in range(120):
