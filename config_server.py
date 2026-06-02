@@ -242,7 +242,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         # 静态文件服务 — GUI 资源 (同源，无 CORS 问题)
         import time as _time
-        GUI_DIR = Path(__file__).parent
+        # EXE 模式：从 exe 所在目录读文件（而非 PyInstaller 临时解压目录）
+        if getattr(sys, 'frozen', False):
+            GUI_DIR = Path(os.path.dirname(sys.executable))
+        else:
+            GUI_DIR = Path(__file__).parent
         static_map = {
             "/": ("index.html", "text/html; charset=utf-8"),
             "/app.js": ("app.js", "application/javascript; charset=utf-8"),
@@ -465,7 +469,10 @@ class Handler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             filename = unquote(self.path[len("/view/"):].split("?")[0])
             # 安全检查：只允许当前目录下的文件
-            GUI_DIR = Path(__file__).parent
+            if getattr(sys, 'frozen', False):
+                GUI_DIR = Path(os.path.dirname(sys.executable))
+            else:
+                GUI_DIR = Path(__file__).parent
             fpath = GUI_DIR / filename
             try:
                 if not fpath.exists() or not fpath.suffix.lower() == ".md":
