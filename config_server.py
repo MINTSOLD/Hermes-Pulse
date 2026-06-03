@@ -666,9 +666,25 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
                         # model 段没有 provider，插入
                         config = re.sub(r"(default:\s*['\"]?[^'\s\"']+)", rf"\g<1>\n  provider: {provider}", config)
                 config_path.write_text(config, encoding="utf-8")
-            # Gateway 由 Windows Scheduled Task 管理，不手动启动避免黑窗口
-            # 配置已写入，Gateway 会在下次轮询时自动加载
-            self._json_response({"ok": True})
+            # 写完配置后立刻重启 Gateway（让新模型生效）
+            # 用 taskkill 主动终止 pythonw.exe（Gateway 进程是 pythonw 启动的 hermes_cli.main gateway run）
+            # watchdog 3s 内会检测到 dead + 重启
+            # 注：不在这里调 _start_gateway()，避免跟 Scheduled Task 重复启动
+            import subprocess as _sp
+            try:
+                out = _sp.run(
+                    ['tasklist', '/FI', 'IMAGENAME eq pythonw.exe', '/FO', 'CSV', '/NH'],
+                    capture_output=True, text=True, timeout=3
+                ).stdout
+                import re as _re
+                for line in out.splitlines():
+                    m = _re.match(r'"pythonw\.exe","(\d+)"', line)
+                    if m:
+                        pid = int(m.group(1))
+                        _sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True)
+            except Exception:
+                pass
+            self._json_response({"ok": True, "restarting": True})
 
         elif self.path == "/set_env_key":
             key, value = body.get("key", ""), body.get("value", "")
@@ -957,7 +973,7 @@ document.getElementById('content').innerHTML = marked.parse({content!r});
 import subprocess, threading, time as _time
 
 HERMES_VEXE = HERMES_DIR / "hermes-agent" / "venv" / "Scripts" / "hermes.exe"
-GATEWAY_CHECK_INTERVAL = 30  # 秒
+GATEWAY_CHECK_INTERVAL = 3  # 秒（优化：模型切换后快速检测 Gateway 重启）
 _gateway_restart_count = 0
 _gateway_last_restart = 0
 
@@ -980,9 +996,9 @@ def _start_gateway():
     # 已经在运行就不用启动
     if _gateway_alive():
         return True
-    # 防抖：60秒内不重复重启
+    # 防抖：5秒内不重复重启（避免 watchdog 和 Scheduled Task 抢着重启）
     now = _time.time()
-    if now - _gateway_last_restart < 60:
+    if now - _gateway_last_restart < 5:
         return False
     _gateway_last_restart = now
     _gateway_restart_count += 1

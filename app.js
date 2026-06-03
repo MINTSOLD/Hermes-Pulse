@@ -858,14 +858,59 @@ async function applyModelChange(id, name) {
   CACHED_DEFAULT_MODEL = id;
   currentTab().sessionId = 'gui-session-' + Date.now().toString(36);
   closeModal('model-modal');
-  showToast(`已切换到 ${name || id}，正在连接...`);
+  // 记录切换目标，等 /health 重新 ready 时显示"连接成功"
+  state._pendingModelName = name || id;
+  showToast(`${name || id} 正在连接...`);
   updateTokenBar();
 
   // 后台异步更新配置 + 重启 Gateway（不阻塞界面）
   fetch(`${CONFIG_SERVER}/set_default`, {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ model_id: id, provider: gatewayProvider }),
-  }).catch(e => console.error('模型切换失败:', e));
+  }).then(r => r.json()).then(d => {
+    if (d && d.ok) {
+      // 配置已写入，Gateway 会自动重启加载新配置
+      // 轮询 /health 等 gateway 重新 ready
+      waitForGatewayReady(name || id);
+    } else {
+      showToast(`切换失败: ${(d && d.error) || '未知错误'}`);
+    }
+  }).catch(e => {
+    showToast(`切换失败: ${e.message}`);
+  });
+}
+
+// 轮询 /health 等 gateway 重新就绪（说明新模型配置已加载）
+async function waitForGatewayReady(modelName) {
+  const startMs = Date.now();
+  // 第一次"切换前"先确认 gateway 是在跑的
+  // （如果切换前就不在跑，等它起来也算"连接成功"）
+  for (let i = 0; i < 60; i++) {  // 最多等 30s
+    try {
+      const r = await fetch(`${CONFIG_SERVER}/health`, { signal: AbortSignal.timeout(2000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.gateway === true) {
+          // Gateway 就绪 — 配置应该已加载
+          const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+          if (state._pendingModelName === modelName) {
+            // 同一个请求的回调，显示"连接成功"
+            showToast(`${modelName} 连接成功 · ${elapsed}s`);
+            state._pendingModelName = null;
+          }
+          // 触发 connection check 刷新状态栏
+          checkConnection();
+          return;
+        }
+      }
+    } catch {}
+    await new Promise(r => setTimeout(r, 500));
+  }
+  // 超时
+  if (state._pendingModelName === modelName) {
+    showToast(`${modelName} 连接超时，请重试`);
+    state._pendingModelName = null;
+  }
 }
 
    async function addProvider(name, baseUrl, apiKey, model) {
