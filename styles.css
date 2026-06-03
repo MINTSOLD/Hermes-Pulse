@@ -505,22 +505,48 @@ body {
 .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
 @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
-/* 系统事件指示器 */
-.system-events { padding: 4px 14px 0; transition: max-height 0.3s ease; }
-.system-events.collapsed { max-height: 24px; overflow: hidden; transition: max-height 0.3s ease; }
+/* 智能步骤卡片 (v1.1.0 Smart Agent) */
+.system-events { padding: 6px 0 0; transition: max-height 0.3s ease; }
+.system-events.collapsed { max-height: 32px; overflow: hidden; transition: max-height 0.3s ease; }
 .system-events.collapsed .sys-event { display: none; }
 .system-events.collapsed .sys-summary { display: flex !important; }
-.sys-summary { display: none; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; color: var(--text-muted); }
+.sys-summary { display: none; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.sys-summary:hover { color: var(--text-secondary); }
 .sys-summary-icon { font-size: 12px; }
+
+/* 单个步骤卡片 */
 .sys-event {
-  display: flex; align-items: center; gap: 6px; padding: 3px 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
   font-size: 12px; color: var(--text-muted);
-  animation: eventFadeIn 0.3s ease;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  animation: eventSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  transition: all 0.25s ease;
 }
-@keyframes eventFadeIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
-.sys-event-icon { font-size: 12px; flex-shrink: 0; }
-.sys-event-text { font-size: 12px; }
-.sys-event-timer { font-size: 11px; color: var(--text-muted); margin-left: 6px; opacity: 0.7; }
+.sys-event:hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+.sys-event.running { border-left: 2px solid var(--accent); }
+.sys-event.completed { opacity: 0.7; }
+.sys-event.error { border-left: 2px solid #e74c3c; color: #e74c3c; }
+.sys-event-icon {
+  font-size: 13px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+.sys-event.running .sys-event-icon { animation: iconPulse 1.5s ease-in-out infinite; }
+@keyframes iconPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+.sys-event-text { font-size: 12px; flex: 1; }
+.sys-event-timer { font-size: 11px; color: var(--text-muted); margin-left: 6px; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.sys-event-detail { font-size: 11px; color: var(--text-muted); opacity: 0.7; margin-left: 4px; font-style: italic; }
+@keyframes eventSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 
 /* 自主进化指示器 */
 .sys-evolution {
@@ -910,7 +936,20 @@ body {
 .btn-clear:hover { border-color: rgba(255,255,255,0.15); }
 
 /* Toast */
-.toast { position: fixed; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-secondary); padding: 8px 20px; border-radius: 8px; font-size: 13px; backdrop-filter: blur(10px); opacity: 0; transition: all 0.3s ease; z-index: 9999; pointer-events: none; }
+.toast { position: fixed; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-secondary); padding: 8px 20px; border-radius: 8px; font-size: 13px; backdrop-filter: blur(10px); opacity: 0; transition: all 0.3s ease; z-index: 9999; pointer-events: none; display: flex; align-items: center; gap: 12px; max-width: 500px; }
+.toast-actionable { pointer-events: auto; }
+.toast-text { flex: 1; }
+.toast-action-btn {
+  padding: 4px 12px; border-radius: 6px; cursor: pointer;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: #d4af37; font-size: 12px; font-weight: 500;
+  transition: all 0.15s ease;
+}
+.toast-action-btn:hover {
+  background: rgba(212, 175, 55, 0.25);
+  border-color: rgba(212, 175, 55, 0.6);
+}
 
 /* 工具栏提示 */
 .toolbar-toast {

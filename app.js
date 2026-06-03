@@ -52,6 +52,174 @@ function getProfileLabel(name) {
   return PROFILE_LABELS[name] || name;
 }
 
+// v1.1.0 Smart Agent: 智能会话命名（关键词抽取 + 截断）
+function extractTabTitle(text) {
+  if (!text) return '新对话';
+  const clean = text.replace(/\s+/g, ' ').trim();
+  // 优先用关键词标签（基于意图分类）
+  const intentMap = [
+    { re: /(代码|code|bug|debug|函数|api|sql|python|java|javascript|typescript|react|vue)/i, label: '💻 编程' },
+    { re: /(翻译|translate|英文|中文|日文)/i, label: '🌐 翻译' },
+    { re: /(写|文章|文案|诗歌|故事|小说|剧本|创作)/i, label: '✍️ 写作' },
+    { re: /(搜索|查询|找|search|find|lookup)/i, label: '🔍 搜索' },
+    { re: /(分析|对比|调研|研究|数据|统计|趋势)/i, label: '📊 分析' },
+    { re: /(解释|什么是|如何|怎么|理解|学习)/i, label: '💡 学习' },
+    { re: /(邮件|meeting|会议|商务|提案|计划|OKR)/i, label: '💼 商务' },
+  ];
+  for (const item of intentMap) {
+    if (item.re.test(clean)) {
+      // 抽取意图标签 + 第一个名词短语
+      const keywords = clean.match(/[\u4e00-\u9fa5]{2,8}|[a-zA-Z]{3,}/g) || [];
+      const first = keywords[0] || clean.slice(0, 6);
+      return `${item.label} ${first}`.slice(0, 18);
+    }
+  }
+  // 默认：前 12 字
+  return clean.length > 12 ? clean.slice(0, 12) + '…' : clean;
+}
+
+// v1.1.0 Smart Agent: 偏好记忆（记住用户最常用 Agent + 模型）
+const PREF_KEY = 'hermes_user_prefs';
+function loadUserPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+  } catch { return {}; }
+}
+function saveUserPref(key, value) {
+  try {
+    const prefs = loadUserPrefs();
+    prefs[key] = value;
+    prefs.lastUpdated = new Date().toISOString();
+    localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+function recordAgentUsage(name) {
+  if (!name) return;
+  const prefs = loadUserPrefs();
+  prefs.agentUsage = prefs.agentUsage || {};
+  prefs.agentUsage[name] = (prefs.agentUsage[name] || 0) + 1;
+  prefs.favoriteAgent = Object.entries(prefs.agentUsage).sort((a, b) => b[1] - a[1])[0]?.[0] || 'default';
+  prefs.lastUpdated = new Date().toISOString();
+  localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+}
+function recordModelUsage(id) {
+  if (!id) return;
+  const prefs = loadUserPrefs();
+  prefs.modelUsage = prefs.modelUsage || {};
+  prefs.modelUsage[id] = (prefs.modelUsage[id] || 0) + 1;
+  prefs.favoriteModel = Object.entries(prefs.modelUsage).sort((a, b) => b[1] - a[1])[0]?.[0];
+  prefs.lastUpdated = new Date().toISOString();
+  localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+}
+
+// 启动时如果用户没手动选过 Agent/Model，自动恢复最爱
+function applyUserPrefs() {
+  const prefs = loadUserPrefs();
+  // 只在没显式设置时恢复
+  if (prefs.favoriteAgent && !window._userExplicitAgent) {
+    // 不自动切换，只在 UI 显示"上次最爱：xxx"
+  }
+}
+
+// v1.1.0 Smart Agent: 检测用户消息中的调度意图
+function detectScheduleIntent(text) {
+  if (!text || text.length > 100) return null;  // 短消息才检测
+  const patterns = [
+    { re: /每天[早晚中上]?\s*(\d{1,2})\s*点/, type: 'daily-fixed', label: '每日定时' },
+    { re: /每周[一二三四五六日天]?\s*(\d{1,2})\s*点/, type: 'weekly', label: '每周定时' },
+    { re: /(\d{1,2})\s*小时[之以]?[后]/, type: 'delay-hours', label: '延时任务' },
+    { re: /(\d{1,2})\s*分钟[之以]?[后]/, type: 'delay-minutes', label: '延时任务' },
+    { re: /明天\s*(\d{1,2})\s*点/, type: 'tomorrow', label: '明日定时' },
+    { re: /提醒我/, type: 'reminder', label: '提醒任务' },
+  ];
+  for (const p of patterns) {
+    if (p.re.test(text)) {
+      return p;
+    }
+  }
+  return null;
+}
+
+function showScheduleSuggestion(intent, messageText) {
+  if (!intent) return;
+  // 存到 localStorage（待用户点击"创建"按钮时真正生成）
+  showToast(`⏰ 检测到「${intent.label}」— 是否创建定时任务？`, 6000, {
+    action: '创建',
+    onAction: () => {
+      // 把意图存到本地（v1.1.0 暂存到 localStorage，未来对接 gateway cron API）
+      const schedule = {
+        id: 'sched-' + Date.now().toString(36),
+        text: messageText,
+        type: intent.type,
+        label: intent.label,
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      };
+      try {
+        const existing = JSON.parse(localStorage.getItem('hermes_schedules') || '[]');
+        existing.push(schedule);
+        localStorage.setItem('hermes_schedules', JSON.stringify(existing));
+        showToast(`✓ 已创建「${intent.label}」— 共 ${existing.length} 个定时任务`);
+      } catch (e) {
+        showToast('创建失败: ' + e.message);
+      }
+    }
+  });
+}
+function suggestAgentFromText(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  // 编程/代码相关
+  if (/(代码|code|编程|debug|函数|bug|报错|错误|异常|api|sql|python|java|javascript|typescript|rust|go\.|c\+\+|react|vue|node|算法|stack|trace|compile)/i.test(text) ||
+      /\b(function|class|import|def |return|const |let |var |if |for |while|try |except|catch)\b/.test(t)) {
+    return { name: 'coding', label: '编程专家', reason: '检测到代码/编程关键词' };
+  }
+  // 写作/翻译相关
+  if (/(翻译|translate|改写|润色|文章|写一篇|帮我写|写一份|撰写|文案|创作|改稿|编辑)/i.test(text) ||
+      /(英文|中文|日文|韩文|法文|德文|西班牙)/.test(text)) {
+    return { name: 'writing', label: '写作助手', reason: '检测到写作/翻译请求' };
+  }
+  // 研究/分析相关
+  if (/(研究|调研|分析|对比|论文|学术|报告|数据|统计|趋势|调查|文献|论文|学术)/i.test(text) ||
+      /\b(why|how|what|explain|analyze|compare|research|investigate|explore)\b/.test(t)) {
+    return { name: 'research', label: '研究员', reason: '检测到研究/分析请求' };
+  }
+  // 商务/工作相关
+  if (/(邮件|商务|会议|报告|提案|计划|OKR|KPI|项目|客户|营销|商业|财务|预算|PPT|ppt)/i.test(text)) {
+    return { name: 'business', label: '商务顾问', reason: '检测到商务/工作请求' };
+  }
+  // 创意/灵感相关
+  if (/(创意|灵感|brainstorm|头脑风暴|想法|点子|创意|故事|诗歌|小说|剧本|设计)/i.test(text)) {
+    return { name: 'creative', label: '创意师', reason: '检测到创意/灵感请求' };
+  }
+  // 学习/教学相关
+  if (/(学习|教我|教程|解释|什么是|如何|怎么做|入门|基础|原理|理解)/i.test(text) ||
+      /\b(learn|teach|tutorial|explain|how does|how do|what is|why does)\b/.test(t)) {
+    return { name: 'learning', label: '学习导师', reason: '检测到学习/教学请求' };
+  }
+  return null;  // 不推荐，用当前 Agent
+}
+
+// 显示智能推荐 Toast（带"切换"按钮）
+function showAgentSuggestion(suggestion, messageText) {
+  if (!suggestion) return;
+  if (suggestion.name === currentProfile) return;  // 已经是这个 Agent
+  showToast(`💡 推荐切换到「${suggestion.label}」— ${suggestion.reason}`, 5000, {
+    action: '切换',
+    onAction: () => {
+      switchProfile(suggestion.name);
+      showToast(`已切换到「${suggestion.label}」— 下条消息将用新 Agent 回复`);
+      // 把消息重新填回输入框（避免重复发送 + 切了 Agent 后让用户重发体验更清晰）
+      const input = document.getElementById('message-input');
+      if (input) {
+        input.value = messageText;
+        autoResize();
+        input.focus();
+      }
+    }
+  });
+}
+
 async function loadProfiles() {
   try {
     const r = await fetch(`${CONFIG_SERVER}/profiles`, { signal: AbortSignal.timeout(3000) });
@@ -934,13 +1102,28 @@ async function waitForGatewayReady(modelName) {
    // 工具函数
    // ============================================
 
-function showToast(message) {
+// v1.1.0 Smart Agent: 支持 action 按钮 + 可配置 duration
+function showToast(message, duration = 2000, opts = {}) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
   const target = document.getElementById('current-model');
   const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
+  toast.className = 'toast' + (opts.action ? ' toast-actionable' : '');
+  const textSpan = document.createElement('span');
+  textSpan.className = 'toast-text';
+  textSpan.textContent = message;
+  toast.appendChild(textSpan);
+  if (opts.action && typeof opts.onAction === 'function') {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action-btn';
+    btn.textContent = opts.action;
+    btn.onclick = () => {
+      opts.onAction();
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 200);
+    };
+    toast.appendChild(btn);
+  }
   // Position below the model selector
   if (target) {
     const rect = target.getBoundingClientRect();
@@ -955,7 +1138,7 @@ function showToast(message) {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(-8px)';
     setTimeout(() => toast.remove(), 300);
-  }, 2000);
+  }, duration);
 }
 
 function showToolbarToast(message) {
@@ -2031,6 +2214,20 @@ function sendMessage() {
     return;
   }
 
+  // v1.1.0 Smart Agent: 智能推荐 Agent（不阻塞发消息）
+  const suggestion = suggestAgentFromText(text);
+  if (suggestion && suggestion.name !== currentProfile) {
+    showAgentSuggestion(suggestion, text);
+  }
+  // v1.1.0 Smart Agent: 智能检测调度意图
+  const scheduleIntent = detectScheduleIntent(text);
+  if (scheduleIntent) {
+    showScheduleSuggestion(scheduleIntent, text);
+  }
+  // v1.1.0 Smart Agent: 记录用户偏好（Agent + Model 使用次数）
+  recordAgentUsage(currentProfile);
+  recordModelUsage(state.currentModel);
+
   state.isGenerating = true;
   updateSendButton();
 
@@ -2043,11 +2240,10 @@ function sendMessage() {
   // 用户发消息时强制开启跟滚，确保新内容第一时间可见
   state.autoScroll = true;
   messagesEl.insertAdjacentHTML('beforeend', `<div class="message message-user" style="align-self:flex-end !important;max-width:75%;justify-content:flex-end;width:auto"><div class="message-bubble"><div class="message-content">${text}</div></div></div>`);
-  // 自动命名标签页：第一条消息时，用消息内容前15个字作为标签名
+  // 自动命名标签页：第一条消息时，用关键词抽取作为标签名（v1.1.0 Smart Agent）
   const tab = currentTab();
   if (state.chatHistory.length === 0 && tab.name === '新对话') {
-    const clean = text.replace(/\s+/g, ' ').trim();
-    tab.name = clean.length > 15 ? clean.slice(0, 15) + '…' : clean;
+    tab.name = extractTabTitle(text);
     renderTabBar();
   }
   // 创建助手消息容器（含思考指示器 + 系统事件区 + 内容区）
@@ -2091,6 +2287,12 @@ function sendMessage() {
     pendingFiles.length = 0; // 清空
   }
   chatMessages.push({ role: 'user', content });
+
+  // v1.1.0 Smart Agent: 立刻显示"分析请求"步骤（用户能看到 agent 在做什么）
+  showSmartStep('📋', '分析请求中...');
+  // 模型名也展示在步骤里，让用户知道用哪个模型
+  const modelShort = (state.currentModel || 'hermes-agent').split('/').pop().slice(0, 30);
+  showSmartStep('🤖', `使用模型 ${modelShort}`);
 
   fetch(`${API_BASE}/v1/chat/completions`, {
     method: 'POST',
@@ -2246,20 +2448,42 @@ function sendMessage() {
     function addSystemEvent(container, icon, text, isEvolution = false) {
       const existing = container.querySelector('.sys-event:last-child');
       // 防重复：如果最后一个事件文本相同就跳过
-      if (existing && existing.querySelector('.sys-event-text')?.textContent === text) return;
+      if (existing && !existing.classList.contains('running') &&
+          existing.querySelector('.sys-event-text')?.textContent === text) return existing;
       const el = document.createElement('div');
-      el.className = isEvolution ? 'sys-event sys-evolution' : 'sys-event';
+      el.className = isEvolution ? 'sys-event sys-evolution' : 'sys-event running';
       const startTime = Date.now();
       el.innerHTML = `<span class="sys-event-icon">${icon}</span><span class="sys-event-text">${text}</span><span class="sys-event-timer">0s</span>`;
       container.appendChild(el);
       // 每秒更新计时
       const timer = setInterval(() => {
+        if (el.classList.contains('completed')) {
+          clearInterval(timer);
+          return;
+        }
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const timerEl = el.querySelector('.sys-event-timer');
         if (timerEl) timerEl.textContent = elapsed + 's';
       }, 1000);
       el._timer = timer;
+      el._startTime = startTime;
+      el._icon = icon;
+      el._text = text;
       if (state.autoScroll) chatAreaEl.scrollTop = chatAreaEl.scrollHeight;
+      return el;
+    }
+
+    // 标记步骤为完成（带耗时）
+    function completeSystemEvent(el) {
+      if (!el || el.classList.contains('completed')) return;
+      el.classList.remove('running');
+      el.classList.add('completed');
+      const elapsed = Math.floor((Date.now() - el._startTime) / 1000);
+      const timerEl = el.querySelector('.sys-event-timer');
+      if (timerEl) {
+        timerEl.textContent = elapsed + 's';
+        timerEl.style.opacity = '0.5';
+      }
     }
 
     // 更新已有事件（工具完成时停止计时）
@@ -2288,6 +2512,12 @@ function sendMessage() {
         const span = thinking.querySelector('span:last-child');
         if (span) span.textContent = text;
       }
+    }
+
+    // v1.1.0 Smart Agent: 显示智能分析步骤（即使没真实 tool call 也展示思考过程）
+    function showSmartStep(icon, text) {
+      if (!state._streamingEventsEl) return;
+      addSystemEvent(state._streamingEventsEl, icon, text);
     }
 
     function updateStreamContent(text) {
