@@ -361,7 +361,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
 .wrap{
   text-align:center;width:100%;max-width:520px;padding:0 24px;
   position:relative;z-index:2;
-  animation:wrapOut 0.5s 1.0s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation:wrapOut 0.6s 1.4s cubic-bezier(0.4,0,0.2,1) forwards;
 }
 @keyframes wrapOut{
   0%   {opacity:1;transform:scale(1);filter:blur(0px)}
@@ -475,8 +475,8 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
 .tech-cross::after{width:100%;height:1px;top:50%;transform:translateY(-50%);}
 @keyframes techSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 @keyframes crossSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-/* Stage 1: full "loading" UI — visible at t=0, fades out at t=1.1s */
-.splash-loading { animation: stage1Out 0.5s 1.1s ease forwards; }
+/* Stage 1: full "loading" UI — visible at t=0, fades out at t=1.5s */
+.splash-loading { animation: stage1Out 0.6s 1.5s ease forwards; }
 @keyframes stage1Out {
   0%   { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.08); filter: blur(4px); }
@@ -492,7 +492,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   opacity: 0; transform: scale(0.96);
-  animation: stage2In 0.5s 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+  animation: stage2In 0.5s 1.6s cubic-bezier(0.16,1,0.3,1) forwards;
 }
 @keyframes stage2In {
   0%   { opacity: 0; transform: scale(0.96); filter: blur(8px); }
@@ -503,7 +503,7 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   flex-shrink: 0; height: 48px;
   background: linear-gradient(180deg, #0a0a0a 0%, #000 100%);
   border-bottom: 1px solid rgba(255,255,255,0.06);
-  opacity: 0; animation: mockChromeIn 0.3s 1.5s ease forwards;
+  opacity: 0; animation: mockChromeIn 0.4s 1.7s ease forwards;
 }
 .splash-mock-center {
   flex: 1; display: flex; flex-direction: column;
@@ -514,19 +514,32 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   flex-shrink: 0; height: 100px;
   background: linear-gradient(0deg, #0a0a0a 0%, #000 100%);
   border-top: 1px solid rgba(255,255,255,0.06);
-  opacity: 0; animation: mockChromeIn 0.3s 1.5s ease forwards;
+  opacity: 0; animation: mockChromeIn 0.4s 1.7s ease forwards;
 }
 @keyframes mockChromeIn { to { opacity: 1; } }
 .splash-mock-logo { width: 140px; height: 140px; object-fit: contain;
   filter: drop-shadow(0 4px 16px rgba(212,175,55,0.18));
-  animation: mockLogoBreathe 4.5s ease-in-out infinite; }
+  opacity: 0;
+  transform: scale(0.85);
+  animation: mockLogoBreathe 4.5s ease-in-out infinite 2.5s,
+             mockLogoIn 0.6s 1.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+@keyframes mockLogoIn {
+  0%   { opacity: 0; transform: scale(0.85); filter: blur(6px); }
+  100% { opacity: 1; transform: scale(1);    filter: blur(0);   }
+}
 @keyframes mockLogoBreathe {
   0%,100%{transform:scale(1)}
   50%{transform:scale(1.025)}
 }
-.splash-mock h1 { color: var(--text-muted); font-size: 24px; font-weight: 500; margin-top: 24px; margin-bottom: 8px; letter-spacing: 0.5px; }
-.splash-mock-tag { color: var(--text-muted); font-size: 14px; opacity: 0.6; margin-bottom: 32px; letter-spacing: 4px; }
-.splash-mock-status { color: var(--text-muted); font-size: 12px; opacity: 0.5; }
+.splash-mock h1 { color: var(--text-muted); font-size: 24px; font-weight: 500; margin-top: 24px; margin-bottom: 8px; letter-spacing: 0.5px;
+  opacity: 0; transform: translateY(8px);
+  animation: mockTextIn 0.5s 2.2s cubic-bezier(0.16,1,0.3,1) forwards; }
+.splash-mock-tag { color: var(--text-muted); font-size: 14px; opacity: 0; margin-bottom: 32px; letter-spacing: 4px;
+  transform: translateY(8px);
+  animation: mockTextIn 0.5s 2.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.splash-mock-status { color: var(--text-muted); font-size: 12px; opacity: 0;
+  transform: translateY(8px);
+  animation: mockTextIn 0.5s 2.9s cubic-bezier(0.16,1,0.3,1) forwards; }
 .splash-mock-brand {
   margin-top: 48px;
   color: rgba(212, 175, 55, 0.4);
@@ -535,7 +548,12 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   font-weight: 300;
   font-family: "Cascadia Code", "Fira Code", -apple-system, "Microsoft YaHei", sans-serif;
   user-select: none;
-  opacity: 0; animation: mockChromeIn 0.6s 1.6s ease forwards;
+  opacity: 0; transform: translateY(8px);
+  animation: mockTextIn 0.6s 3.3s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes mockTextIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* Title with typewriter reveal + glitch */
@@ -1003,9 +1021,15 @@ if __name__ == '__main__':
         t0 = time.time()
         cs_ready_at = None
         gw_ready_at = None
-        # 优化：splash 最小显示时间 2.2s（够看清两阶段 logo + 品牌）
-        # 阶段 1 (1.0s) + 阶段 2 mock (1.0s) + 缓冲 0.2s = 2.2s
-        _splash_min_ms = 2200
+        # 优化：splash 显示时间线（让用户清楚看到"什么在变化"）
+        # 0.0s  Stage 1: System Boot（圆环 + INITIALIZING）
+        # 1.4s  Stage 1 fade out
+        # 1.6s  Stage 2: 品牌 logo 缩放出现
+        # 2.2s  副标题 "轻于形·智于心" 淡入
+        # 2.8s  状态行 "选择模型·开始对话" 淡入
+        # 3.4s  品牌签名 "POWER BY  MINTSOLD·薄荷老头" 淡入
+        # 4.0s  Stage 2 完整可见 → 切主页
+        _splash_min_ms = 4000
 
         # Poll services for up to 4s (was 12s — services normally up in 0.5s)
         for i in range(40):
