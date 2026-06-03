@@ -492,7 +492,12 @@ body{display:flex;align-items:center;justify-content:center;position:relative;z-
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   opacity: 0; transform: scale(0.96);
-  animation: stage2In 0.5s 1.6s cubic-bezier(0.16,1,0.3,1) forwards;
+  animation: stage2In 0.5s 1.6s cubic-bezier(0.16,1,0.3,1) forwards,
+             splashOut 0.6s 4.0s ease forwards;
+}
+@keyframes splashOut {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
 }
 @keyframes stage2In {
   0%   { opacity: 0; transform: scale(0.96); filter: blur(8px); }
@@ -1028,8 +1033,9 @@ if __name__ == '__main__':
         # 2.2s  副标题 "轻于形·智于心" 淡入
         # 2.8s  状态行 "选择模型·开始对话" 淡入
         # 3.4s  品牌签名 "POWER BY  MINTSOLD·薄荷老头" 淡入
-        # 4.0s  Stage 2 完整可见 → 切主页
-        _splash_min_ms = 4000
+        # 4.0s  Stage 2 自身开始 fade out (splashOut CSS 动画)
+        # 4.6s  Stage 2 完全不可见 → 切主页（无缝衔接，全黑过渡）
+        _splash_min_ms = 4600
 
         # Poll services for up to 4s (was 12s — services normally up in 0.5s)
         for i in range(40):
@@ -1050,10 +1056,20 @@ if __name__ == '__main__':
                 break
             time.sleep(0.05)
 
-        # The splash has its own CSS-driven fade-out at 2.0s (splash_internal
-        # `.wrap` animation: opacity 1 → 0 over 0.6s). By the time we call
-        # load_url(URL), webview2 is already showing an empty transparent page,
-        # so the navigation to the main chat UI is visually seamless.
+        # Fix 头总"白块"问题：load_url(URL) 切换到主页时 webview2 短暂显示白页
+        # 解决：
+        # 1) splash 自身在 4.0-4.6s 用 CSS fade out（splashOut 动画）— 用户看到全黑渐变
+        # 2) 4.6s 后用 load_html 切到纯黑 bridge HTML（瞬间）— 保持黑屏
+        # 3) load_url(URL) 切到主页 — 此时主页已无白屏
+        # 中间全程是黑屏过渡，主页加载完无缝显示
+        try:
+            # 1) bridge 黑屏
+            w.load_html(
+                '<!DOCTYPE html><html><head><style>html,body{margin:0;background:#000;height:100%}</style></head><body></body></html>'
+            )
+            time.sleep(0.15)  # 等 webview2 渲染 bridge
+        except Exception:
+            pass
         try:
             w.load_url(URL)
         except Exception:
